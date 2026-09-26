@@ -19,7 +19,7 @@ export async function createAlert(params: {
     condition: 'ABOVE' | 'BELOW';
 }) {
     const userId = await requireUserId();
-    if (!alertsEnabled) throw new Error('Price alerts are part of OpenStock Cloud');
+    if (!alertsEnabled) throw new Error('Price alerts need realtime mode, which is off on this site');
     const symbol = String(params.symbol ?? '').trim().toUpperCase();
     const targetPrice = Number(params.targetPrice);
     const condition = params.condition;

@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="public/assets/images/logo.png" alt="OpenStock Logo" width="120" />
-  <h1>OpenStock API & Architecture</h1>
+  <h1>StockLens API & Architecture</h1>
   
   <p>
     <b>Modern. Open. Resilient.</b>
@@ -17,7 +16,7 @@
 
 ## 🏗️ Architecture Overview
 
-OpenStock leverages a resilient event-driven architecture powered by **Inngest**. We prioritize uptime for our generative features by utilizing a multi-provider AI strategy.
+StockLens leverages a resilient event-driven architecture powered by **Inngest**. We prioritize uptime for our generative features by utilizing a multi-provider AI strategy.
 
 ### 🧠 Intelligent Model Routing
 
@@ -54,7 +53,7 @@ The workhorse of our generative content. Fast, efficient, and deeply integrated 
   <a href="https://www.siray.ai/">
     <img src="public/assets/icons/siray.svg" alt="Siray.ai Logo" width="180" />
   </a>
-  <p><i>The robust infrastructure backing OpenStock.</i></p>
+  <p><i>The robust infrastructure backing StockLens.</i></p>
 </div>
 
 ---
@@ -108,5 +107,5 @@ Our background jobs are defined in `lib/inngest/functions.ts`.
 ---
 
 <div align="center">
-  <sub>Documentation © Open Dev Society. Built with ❤️ for the Open Source Community.</sub>
+  <sub>Documentation © Open Dev Society, adapted for StockLens by NextG Infosoft. Built with ❤️ for the Open Source Community.</sub>
 </div>

@@ -1,61 +1,34 @@
-<p align="center">
-  
-</p>
-
-<p align="center">
-  <b>New from Open Dev Society:</b> <a href="https://github.com/Open-Dev-Society/kitbash"><b>kitbash</b></a>. Before you build, find out which parts already exist on GitHub. Borrow them, adapt them, or write the rest.
-</p>
-
-<p align="center">
- <a href="https://www.star-history.com/open-dev-society/openstock">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=Open-Dev-Society/OpenStock&type=trending" /></picture>
- </a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/15728?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-15728" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/15728" alt="Open-Dev-Society%2FOpenStock | Trendshift" width="250" height="55"/></a>
-  <a href="https://trendshift.io/repositories/15728?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-15728" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/15728/daily?language=TypeScript" alt="Open-Dev-Society%2FOpenStock | Trendshift" width="250" height="55"/></a>
-  <a href="https://trendshift.io/repositories/15728?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-15728" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/15728/weekly?language=TypeScript" alt="Open-Dev-Society%2FOpenStock | Trendshift" width="250" height="55"/></a>
-  <a href="https://trendshift.io/repositories/15728?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-15728" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/15728/monthly?language=TypeScript" alt="Open-Dev-Society%2FOpenStock | Trendshift" width="250" height="55"/></a>
-
-</p>
 <div align="center">
+  <img src="./public/assets/images/dashboard.png" alt="StockLens dashboard" />
   <br />
-  <a href="#" target="_blank">
-    <img src="./public/assets/images/dashboard.png" alt="Project Banner" />
-  </a>
-  © Open Dev Society. This project is licensed under AGPL-3.0; if you modify, redistribute, or deploy it (including as a web service), you must release your source code under the same license and credit the original authors.
   <br />
-  <br/>
-
   <div>
     <img src="https://img.shields.io/badge/-Next.js-black?style=for-the-badge&logoColor=white&logo=next.js&color=000000" alt="Next.js badge" />
     <img src="https://img.shields.io/badge/-TypeScript-black?style=for-the-badge&logoColor=white&logo=typescript&color=3178C6"/>
     <img src="https://img.shields.io/badge/-Tailwind%20CSS-black?style=for-the-badge&logoColor=white&logo=tailwindcss&color=38B2AC"/>
-    <img src="https://img.shields.io/badge/-shadcn/ui-black?style=for-the-badge&logoColor=white&logo=shadcnui&color=000000"/>
-    <img src="https://img.shields.io/badge/-Radix%20UI-black?style=for-the-badge&logoColor=white&logo=radixui&color=000000"/>
-    <img src="https://img.shields.io/badge/-Better%20Auth-black?style=for-the-badge&logoColor=white&logo=betterauth&color=000000"/>
     <img src="https://img.shields.io/badge/-MongoDB-black?style=for-the-badge&logoColor=white&logo=mongodb&color=00A35C"/>
     <img src="https://img.shields.io/badge/-Inngest-black?style=for-the-badge&logoColor=white&logo=inngest&color=000000"/>
-    <img src="https://img.shields.io/badge/-Nodemailer-black?style=for-the-badge&logoColor=white&logo=gmail&color=EA4335"/>
     <img src="https://img.shields.io/badge/-TradingView-black?style=for-the-badge&logoColor=white&logo=tradingview&color=2962FF"/>
     <img src="https://img.shields.io/badge/-Finnhub-black?style=for-the-badge&logoColor=white&color=30B27A"/>
-    <img src="https://img.shields.io/badge/-CodeRabbit-black?style=for-the-badge&logoColor=white&logo=coderabbit&color=9146FF"/>
   </div>
 </div>
 
-# OpenStock
+# StockLens
 
-OpenStock is an open-source alternative to expensive market platforms. Track real-time prices, watch the whole market, and explore detailed company insights — built openly, for everyone, forever free.
+StockLens brings the whole market into focus. Track prices, watch the whole market, and explore detailed company insights, free.
 
-> ❤️ **13,000+ people use OpenStock for free.** Help keep it that way: [sponsor from $5 a month](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=recurring&amount=5), or read [how OpenStock is funded](#sponsors).
+Live at **https://stocklense.nextginfosoft.com** · run by NextG Infosoft · support: nextginfosoft@gmail.com
 
-Note: OpenStock is community-built and not a brokerage. Market data may be delayed based on provider rules and your configuration. Nothing here is financial advice.
+> **Built on OpenStock.** StockLens is a modified version of [OpenStock](https://github.com/Open-Dev-Society/OpenStock) by **Open Dev Society**, used under the GNU Affero General Public License v3.0. StockLens is released under the same license. See [NOTICE.md](./NOTICE.md) for what was changed.
+>
+> Original notice: © Open Dev Society. This project is licensed under AGPL-3.0; if you modify, redistribute, or deploy it (including as a web service), you must release your source code under the same license and credit the original authors.
+
+Note: StockLens is not a brokerage. Market data may be delayed based on provider rules and your configuration. Nothing here is financial advice.
 
 ## 📋 Table of Contents
 
 1. ✨ [Introduction](#introduction)
-2. 🌍 [Open Dev Society Manifesto](#manifesto)
+2. 🌍 [Open Dev Society Manifesto (original authors)](#manifesto)
 3. ⚙️ [Tech Stack](#tech-stack)
 4. 🔋 [Features](#features)
 5. 🤸 [Quick Start](#quick-start)
@@ -69,11 +42,10 @@ Note: OpenStock is community-built and not a brokerage. Market data may be delay
 13. 🛡️ [Security](#security)
 14. 📜 [License](#license)
 15. 🙏 [Acknowledgements](#acknowledgements)
-16. ❤️ [Sponsor OpenStock](#sponsors)
 
 ## ✨ Introduction <a name="introduction"></a>
 
-OpenStock is a modern stock market app powered by Next.js (App Router), shadcn/ui and Tailwind CSS, Better Auth for authentication, MongoDB for persistence, Finnhub for market data, and TradingView widgets for charts and market views.
+StockLens is a modern stock market app powered by Next.js (App Router), shadcn/ui and Tailwind CSS, Better Auth for authentication, MongoDB for persistence, Finnhub for market data, and TradingView widgets for charts and market views.
 
 ## 🌍 Open Dev Society Manifesto <a name="manifesto"></a>
 
@@ -153,7 +125,7 @@ Prerequisites
 
 Clone and install
 ```bash
-git clone https://github.com/Open-Dev-Society/OpenStock.git
+git clone https://github.com/nextginfosoft/OpenStock.git
 cd OpenStock
 
 # choose one:
@@ -195,12 +167,12 @@ Open http://localhost:3000 to view the app.
 
 ## 🐳 Docker Setup <a name="docker-setup"></a>
 
-You can run OpenStock and MongoDB easily with Docker Compose.
+You can run StockLens and MongoDB easily with Docker Compose.
 
 1) Ensure Docker and Docker Compose are installed.
 
 2) docker-compose.yml includes two services:
-- openstock (this app)
+- stocklens (this app)
 - mongodb (MongoDB database with a persistent volume)
 
 3) Create your `.env` (see examples below). For the Docker setup, use a local connection string like:
@@ -294,7 +266,7 @@ INNGEST_EVENT_KEY=your_inngest_event_key
 # Several free Finnhub keys, rotated per request: each adds 60 requests/min.
 # FINNHUB_API_KEYS=key_one,key_two
 # "cached" (default) refreshes quotes hourly for everyone; "realtime" refreshes every 15s
-# and turns on email price alerts (an OpenStock Cloud feature).
+# and turns on email price alerts.
 # NEXT_PUBLIC_OPENSTOCK_DATA_MODE=cached
 
 # Social sign-in (optional; each provider is hidden server-side until set)
@@ -352,7 +324,7 @@ INNGEST_EVENT_KEY=your_inngest_event_key
 # Several free Finnhub keys, rotated per request: each adds 60 requests/min.
 # FINNHUB_API_KEYS=key_one,key_two
 # "cached" (default) refreshes quotes hourly for everyone; "realtime" refreshes every 15s
-# and turns on email price alerts (an OpenStock Cloud feature).
+# and turns on email price alerts.
 # NEXT_PUBLIC_OPENSTOCK_DATA_MODE=cached
 
 # Social sign-in (optional; each provider is hidden server-side until set)
@@ -447,7 +419,7 @@ public/assets/images/   # logos and screenshots
 
 ## 🌍 Market Support <a name="market-support"></a>
 
-OpenStock supports **30+ international stock exchanges** including NSE, LSE, TSX, and more. However, please be aware of important limitations based on our data providers.
+StockLens supports **30+ international stock exchanges** including NSE, LSE, TSX, and more. However, please be aware of important limitations based on our data providers.
 
 **Quick Facts**:
 - ✅ Finnhub supports most global exchanges
@@ -492,12 +464,12 @@ You belong here. Whether you’re a student, a self-taught dev, or a seasoned en
 
 If you discover a vulnerability:
 - Do not open a public issue
-- Email: <a href="mailto:opendevsociety@cc.cc">opendevsociety@cc.cc</a>
+- Email: <a href="mailto:nextginfosoft@gmail.com">nextginfosoft@gmail.com</a> (for issues in the original OpenStock project, contact Open Dev Society at <a href="mailto:opendevsociety@cc.cc">opendevsociety@cc.cc</a>)
 - We'll coordinate responsible disclosure and patch swiftly
 
 ## 📜 License <a name="license"></a>
 
-OpenStock is and will remain free and open for everyone. This project is licensed under the AGPL-3.0 License - see the LICENSE file for details.
+StockLens is and will remain free and open for everyone. This project is licensed under the AGPL-3.0 License - see the LICENSE file for details.
 
 ## 🙏 Acknowledgements <a name="acknowledgements"></a>
 
@@ -512,7 +484,7 @@ OpenStock is and will remain free and open for everyone. This project is license
 
 > © Open Dev Society. This project is licensed under AGPL-3.0; if you modify, redistribute, or deploy it (including as a web service), you must release your source code under the same license and credit the original authors.
 
-## Our Honourable Contributors
+## Original OpenStock contributors
 - [ravixalgorithm](https://github.com/ravixalgorithm) - Developed the entire application from the ground up, including authentication, UI design, API and AI integration, and deployment.
 - [Priyanshuu00007](https://github.com/Priyanshuu00007) - Created the official OpenStock logo and contributed to the project’s visual identity.
 - [chinnsenn](https://github.com/chinnsenn) - Set up Docker configuration for the repository, ensuring a smooth development and deployment process.
@@ -520,33 +492,6 @@ OpenStock is and will remain free and open for everyone. This project is license
 - [ettoreciolli1](https://github.com/ettoreciolli1) - updated Readme
 
 
-
-## ❤️ Sponsor OpenStock <a name="sponsors"></a>
-
-OpenStock is free, open source and used by **13,000+ registered people**. Keeping it that way costs money every month: hosting, the database, market data keys, AI and email, and the hours that go into reviewing pull requests and shipping fixes.
-
-**How OpenStock is funded**
-
-- **OpenStock Cloud will pay for hosting.** Cloud ($5 a month, coming soon) adds live quotes and email price alerts. Its subscribers will cover the servers, database and market data the hosted app needs, so the free site stays online without depending on donations.
-- **Sponsors keep the community moving.** Sponsorships pay for the time behind OpenStock: reviewing community pull requests, fixing bugs and shipping features at the pace 13,000+ people expect, with the core free for everyone. Self-hosting stays free, with every feature.
-
-**Pick a tier.** Each link opens GitHub Sponsors with the amount already selected. Cancel any time.
-
-| Tier | Monthly | What you get |
-|---|---|---|
-| [Backer](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=recurring&amount=5) | $5 | Your name in this README |
-| [Supporter](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=recurring&amount=25) | $25 | Name and avatar on the sponsor wall and the sponsor page |
-| [Company](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=recurring&amount=100) | $100 | Your logo in the footer of every public page, in this README and on the sponsor page |
-| [Partner](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=recurring&amount=500) | $500 | One of three sponsor slots in the app sidebar, seen by 13,000+ registered users, plus your logo on the landing page |
-
-Rather give once? [Make a one-time gift](https://github.com/sponsors/ravixalgorithm/sponsorships?frequency=one-time). Want an invoice or a custom partnership? [Talk with us](mailto:opendevsociety@gmail.com?subject=Sponsoring%20OpenStock). Everything, including where the money goes, is on the [sponsor page](https://openstock-ods.vercel.app/sponsor).
-
-Sponsorships are paid through GitHub Sponsors to [@ravixalgorithm](https://github.com/ravixalgorithm) (Ravi Pratap Singh, founder of Open Dev Society).
-
-Can't sponsor right now? Pick a [good first issue](https://github.com/Open-Dev-Society/OpenStock/issues?q=is%3Aopen+label%3A%22good+first+issue%22), star the repo, or share OpenStock with someone who pays too much for a terminal.
-
-**Current sponsors:** your logo here.
-**Previously backed by:** [Siray.ai](https://www.siray.ai/) (2026)
 
 ## Special thanks
 Huge thanks to [Adrian Hajdin (JavaScript Mastery)](https://github.com/adrianhajdin) — his excellent Stock Market App tutorial was instrumental in building OpenStock for the open-source community under the Open Dev Society.

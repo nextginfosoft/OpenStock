@@ -154,7 +154,7 @@ type OpenDevSocietyBrandingProps = {
 };
 
 export const OpenDevSocietyBranding: React.FC<OpenDevSocietyBrandingProps> = ({
-                                                                                  text = "Initiative by",
+                                                                                  text = "Built on OpenStock by",
                                                                                   name = "Open Dev Society",
                                                                                   style = {},
                                                                                   className = "rounded-lg px-3 py-0.5 shadow-[inset_0_0_0_1px_var(--line)]",

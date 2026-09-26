@@ -8,7 +8,7 @@ import { openSearch } from "@/components/SearchCommand";
 import { cn } from "@/lib/utils";
 
 const PINNED = ['/dashboard', '/watchlist'];
-const STORAGE_KEY = 'openstock-tabs';
+const STORAGE_KEY = 'stocklens-tabs';
 const MAX_TABS = 12;
 
 const PAGE_LABELS: Record<string, string> = {

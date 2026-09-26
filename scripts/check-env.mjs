@@ -4,7 +4,7 @@
  * Environment Variables Checker
  * Run: node scripts/check-env.mjs
  *
- * Checks your .env file against the requirements for OpenStock.
+ * Checks your .env file against the requirements for StockLens.
  * Provides detailed feedback on missing, present, and deprecated variables,
  * along with guidance on how to fix common issues.
  */
@@ -63,7 +63,7 @@ const optionalVars = {
 
     // Market data freshness + key pool
     'FINNHUB_API_KEYS': 'Comma-separated Finnhub keys, rotated per request (each adds 60 req/min). Falls back to NEXT_PUBLIC_FINNHUB_API_KEY',
-    'NEXT_PUBLIC_OPENSTOCK_DATA_MODE': '"cached" (default: quotes refresh hourly, shared by everyone) or "realtime" (every 15s; OpenStock Cloud / self-hosted)',
+    'NEXT_PUBLIC_OPENSTOCK_DATA_MODE': '"cached" (default: quotes refresh hourly, shared by everyone) or "realtime" (every 15s; enables email price alerts)',
 
     // Social sign-in (Better Auth)
     'GOOGLE_CLIENT_ID': 'Google OAuth client ID (callback: <BETTER_AUTH_URL>/api/auth/callback/google)',
@@ -189,7 +189,7 @@ function getHint(key, type) {
         'NODEMAILER_EMAIL': 'Your Gmail address',
         'NODEMAILER_PASSWORD': 'Generate Gmail App Password: myaccount.google.com → Security → App passwords',
     };
-    return hints[key] || 'Check the OpenStock API_DOCS.md for setup instructions';
+    return hints[key] || 'Check API_DOCS.md for setup instructions';
 }
 
 // Display Present Required Variables
