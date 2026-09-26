@@ -59,7 +59,7 @@ const SignUp = () => {
     return (
         <>
             <h1 className="form-title mb-2">Create your account</h1>
-            <p className="mb-8 text-faint">Free and open source. No card needed.</p>
+            <p className="mb-8 text-faint">Free forever. No card needed.</p>
 
             <SocialAuthButtons />
 

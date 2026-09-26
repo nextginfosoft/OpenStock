@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Github } from "lucide-react";
 import { getSession } from "@/lib/better-auth/auth";
 import Logo from "@/components/Logo";
 import OpenDevSocietyBranding from "@/components/OpenDevSocietyBranding";
@@ -10,6 +9,7 @@ const FOOTER_LINKS = [
     { href: '/help', label: 'Help' },
     { href: '/api-docs', label: 'Architecture' },
     { href: '/terms', label: 'Terms' },
+    // Required by AGPL-3.0 section 13: users of the hosted app must be offered the source
     { href: REPO_URL, label: 'Source code' },
 ];
 
@@ -30,9 +30,6 @@ export default async function MarketingLayout({ children }: { children: React.Re
                         ))}
                     </nav>
                     <div className="ml-auto flex items-center gap-2">
-                        <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn btn-ghost hidden h-9 px-3 sm:inline-flex" aria-label={`${APP_NAME} source code on GitHub`}>
-                            <Github />
-                        </a>
                         {signedIn ? (
                             <Link href="/dashboard" className="btn btn-primary h-9">Open dashboard</Link>
                         ) : (
@@ -51,7 +48,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
                 <div className="flex flex-col gap-3">
                     <Logo className="text-[17px]" />
                     <p className="text-[13px] text-faint">
-                        © {new Date().getFullYear()} NextG Infosoft · AGPL-3.0 · Based on{' '}
+                        © {new Date().getFullYear()} NextG Infosoft · Built on{' '}
                         <a href={UPSTREAM_REPO_URL} target="_blank" rel="noreferrer" className="underline hover:text-muted-foreground">{UPSTREAM_NAME}</a> by {UPSTREAM_AUTHOR}
                     </p>
                 </div>

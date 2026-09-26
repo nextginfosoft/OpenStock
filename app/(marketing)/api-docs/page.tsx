@@ -2,7 +2,7 @@ import { BarChart2, Clock, Mail, UserX } from 'lucide-react';
 import PageHero from '@/components/marketing/PageHero';
 import SectionHead from '@/components/marketing/SectionHead';
 import IconCard from '@/components/marketing/IconCard';
-import { APP_NAME, REPO_URL } from '@/lib/constants';
+import { APP_NAME, REPO_URL, UPSTREAM_NAME } from '@/lib/constants';
 
 export const metadata = {
     title: 'Architecture',
@@ -49,7 +49,7 @@ export default function ArchitecturePage() {
             >
                 <span className="pill h-8 px-3">v1.0.0</span>
                 <span className="pill h-8 px-3">Gemini with MiniMax fallback</span>
-                <span className="pill h-8 px-3">Open source · AGPL-3.0</span>
+                <span className="pill h-8 px-3">Built on {UPSTREAM_NAME}</span>
             </PageHero>
 
             <section className="mx-auto mt-20 max-w-[1200px] px-5">

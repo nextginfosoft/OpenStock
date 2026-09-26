@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { CandlestickChart, Command, Github, Grid3x3, MailOpen, MessagesSquare, Star } from "lucide-react";
+import { CandlestickChart, Command, Grid3x3, MailOpen, MessagesSquare, Star } from "lucide-react";
 import { MarketDial, MarketStatus } from "@/components/landing/MarketClock";
 import ProductPreview from "@/components/landing/ProductPreview";
 import SectionHead from "@/components/marketing/SectionHead";
 import IconCard from "@/components/marketing/IconCard";
 import { getSession } from "@/lib/better-auth/auth";
-import { APP_NAME, REPO_URL, UPSTREAM_AUTHOR, UPSTREAM_NAME, UPSTREAM_REPO_URL } from "@/lib/constants";
+import { APP_NAME, UPSTREAM_AUTHOR, UPSTREAM_NAME, UPSTREAM_REPO_URL } from "@/lib/constants";
 
 const FEATURES = [
     { icon: CandlestickChart, title: 'Charts that move', body: 'TradingView candles, technicals and financials for any listed company, full screen when you need room.' },
@@ -16,16 +16,14 @@ const FEATURES = [
     { icon: MailOpen, title: 'A Monday digest', body: 'A short, AI-written summary of the week’s news for the stocks you watch.' },
 ];
 
-const TIERS = [
+const DATA_SOURCES = [
     {
-        name: 'Free', price: 'Free', cadence: 'Hourly', perHour: 1,
-        body: 'This site. Quotes refresh every hour and are shared by everyone from the edge. Charts stay live.',
-        cta: { label: 'Get started', href: '/sign-up' },
+        name: 'Charts', source: 'TradingView', cadence: 'Live', perHour: 240,
+        body: 'Candles, technicals, heatmaps and market widgets stream live, straight from TradingView.',
     },
     {
-        name: 'Self-host', price: 'Free', cadence: 'Your call', perHour: 240,
-        body: 'Run it on your own server with your own Finnhub keys: realtime quotes and email price alerts for you and your team.',
-        cta: { label: 'Setup guide', href: '#self-host' },
+        name: 'Quotes and watchlists', source: 'Finnhub', cadence: 'Hourly', perHour: 1,
+        body: 'Prices on your watchlist and dashboard refresh every hour, and every price shows when it last traded.',
     },
 ];
 
@@ -55,14 +53,12 @@ export default async function LandingPage() {
                         The whole market,<br />in focus.
                     </h1>
                     <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-muted-foreground">
-                        {APP_NAME} is a free, open-source market app. Track prices, watch the whole market and dig into
+                        {APP_NAME} is a free market app. Track prices, watch the whole market and dig into
                         company insights, without a paywall.
                     </p>
                     <div className="mt-8 flex flex-wrap items-center gap-2">
                         <Link href={start.href} className="btn btn-primary h-11 px-5 text-[15px]">{start.label}</Link>
-                        <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn btn-ghost h-11 px-5 text-[15px]">
-                            <Github /> Source code
-                        </a>
+                        <Link href="#inside" className="btn btn-ghost h-11 px-5 text-[15px]">See what’s inside</Link>
                     </div>
                 </div>
                 <div className="hatch">
@@ -86,83 +82,40 @@ export default async function LandingPage() {
             <section id="data" className="mx-auto mt-28 max-w-[1200px] scroll-mt-24 px-5">
                 <SectionHead
                     kicker="Data"
-                    title="Pick how fresh your numbers are."
-                    sub="Charts always stream live from TradingView. Quotes, watchlists and alerts come from Finnhub, and this is how often they update."
+                    title="How fresh are the numbers?"
+                    sub="Charts come live from TradingView. Quotes and watchlist prices come from Finnhub."
                 />
                 <div className="grid gap-3 lg:grid-cols-2">
-                    {TIERS.map((tier) => (
-                        <div key={tier.name} className="hatch">
+                    {DATA_SOURCES.map((item) => (
+                        <div key={item.name} className="hatch">
                             <div className="card flex h-full flex-col gap-4 p-5">
-                                <h3 className="text-[18px] font-bold tracking-[-0.02em]">{tier.name}</h3>
-                                <p className="bento-value text-[30px]">{tier.price}</p>
-                                <p className="text-[14px] leading-relaxed text-muted-foreground">{tier.body}</p>
-                                <div className="mt-auto flex flex-col gap-2">
-                                    <CadenceRail perHour={tier.perHour} />
-                                    <p className="num flex justify-between text-[12px] text-faint">
-                                        <span>{tier.cadence}</span>
-                                        <span>{tier.perHour} {tier.perHour === 1 ? 'update' : 'updates'} an hour</span>
-                                    </p>
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-[18px] font-bold tracking-[-0.02em]">{item.name}</h3>
+                                    <span className="pill">{item.source}</span>
                                 </div>
-                                <Link
-                                    href={tier.cta.href}
-                                    className={tier.name === 'Free' ? 'btn btn-primary' : 'btn btn-ghost'}
-                                    {...(tier.cta.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}
-                                >
-                                    {tier.cta.label}
-                                </Link>
+                                <p className="text-[14px] leading-relaxed text-muted-foreground">{item.body}</p>
+                                <div className="mt-auto flex flex-col gap-2">
+                                    <CadenceRail perHour={item.perHour} />
+                                    <p className="num text-[12px] text-faint">{item.cadence}</p>
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
             </section>
 
-            <section id="self-host" className="mx-auto mt-28 grid max-w-[1200px] scroll-mt-24 items-start gap-10 px-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                <div>
-                    <SectionHead
-                        kicker="Self-host"
-                        title="Your server, your keys, live quotes."
-                        sub="Add as many free Finnhub keys as you like: each one adds 60 requests a minute. Switch the data mode to realtime and prices refresh every 15 seconds."
-                    />
-                    <a href={`${REPO_URL}#docker-setup`} target="_blank" rel="noreferrer" className="btn btn-ghost">Full setup in the README</a>
-                </div>
-                <div className="hatch">
-                    <pre className="card mono overflow-x-auto p-5 text-[13px] leading-7 text-muted-foreground">
-                        <span className="text-faint">$ </span><span className="text-foreground">git clone {REPO_URL}.git</span>{'\n'}
-                        <span className="text-faint">$ </span><span className="text-foreground">cd {REPO_URL.split('/').pop()}</span>{'\n\n'}
-                        <span className="text-faint"># .env (every variable is in the README)</span>{'\n'}
-                        <span className="text-brand-ink">FINNHUB_API_KEYS</span>=key_one,key_two,key_three{'\n'}
-                        <span className="text-brand-ink">NEXT_PUBLIC_OPENSTOCK_DATA_MODE</span>=realtime{'\n\n'}
-                        <span className="text-faint">$ </span><span className="text-foreground">docker compose up -d --build</span>
-                    </pre>
-                </div>
-            </section>
-
             <section className="mx-auto mt-28 max-w-[1200px] px-5">
                 <div className="hatch">
-                    <div className="card grid gap-10 p-8 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:p-12">
-                        <div>
-                            <p className="kicker text-brand-ink">Open source</p>
-                            <blockquote className="mt-4 text-[26px] font-semibold leading-snug tracking-[-0.03em] md:text-[30px]">
-                                {APP_NAME} is built on{' '}
-                                <a href={UPSTREAM_REPO_URL} target="_blank" rel="noreferrer" className="text-brand-ink hover:underline">{UPSTREAM_NAME}</a>{' '}
-                                by {UPSTREAM_AUTHOR}, and its full source code is free for anyone to read, run and improve.
-                            </blockquote>
-                            <div className="mt-8 flex flex-wrap gap-2">
-                                <Link href={start.href} className="btn btn-primary h-11 px-5 text-[15px]">{start.label}</Link>
-                                <a href={REPO_URL} target="_blank" rel="noreferrer" className="btn btn-ghost h-11 px-5 text-[15px]"><Github /> Source code</a>
-                            </div>
-                        </div>
-                        <dl className="grid grid-cols-2 content-end gap-3">
-                            {[
-                                ['License', 'AGPL-3.0'],
-                                ['Written in', 'TypeScript'],
-                            ].map(([label, value]) => (
-                                <div key={label} className="bento-tile col-span-1 bg-page">
-                                    <dt className="kicker">{label}</dt>
-                                    <dd className="bento-value text-[26px]">{value}</dd>
-                                </div>
-                            ))}
-                        </dl>
+                    <div className="card flex flex-col items-start gap-6 p-8 md:p-12">
+                        <h2 className="text-[30px] font-bold leading-tight tracking-[-0.04em] md:text-[38px]">
+                            Bring the whole market into focus.
+                        </h2>
+                        <Link href={start.href} className="btn btn-primary h-11 px-5 text-[15px]">{start.label}</Link>
+                        <p className="text-[13px] text-faint">
+                            Built on{' '}
+                            <a href={UPSTREAM_REPO_URL} target="_blank" rel="noreferrer" className="underline hover:text-muted-foreground">{UPSTREAM_NAME}</a>{' '}
+                            by {UPSTREAM_AUTHOR}.
+                        </p>
                     </div>
                 </div>
             </section>

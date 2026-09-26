@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createAlert } from "@/lib/actions/alert.actions";
 import { alertsEnabled } from "@/lib/market-data";
@@ -123,11 +122,8 @@ export default function CreateAlertModal({ symbol, currentPrice, currency = 'USD
                         <p className="kicker text-brand-ink">Price alerts</p>
                         <DialogTitle className="mt-1 text-xl font-bold tracking-tight">Price alerts aren’t available yet</DialogTitle>
                         <DialogDescription className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
-                            Alerts need live quotes, and this site refreshes prices hourly. Self-hosting with realtime mode turns them on.
+                            Alerts need live quotes, and this site refreshes prices hourly. We’ll turn them on when live quotes arrive.
                         </DialogDescription>
-                        <div className="mt-5 flex gap-2">
-                            <Link href="/#self-host" className="btn btn-ghost h-11 flex-1">Self-host</Link>
-                        </div>
                     </div>
                 )}
             </DialogContent>

@@ -33,4 +33,10 @@ Based on OpenStock at upstream commit `87df76a`.
 - Replaced the Open Dev Society founder testimonial on the sign-in screen with a product tagline.
 - Rewrote the landing, About and Help pages for StockLens.
 
+## Changes made (2026-09-26, later)
+
+- Removed license wording and "open source" mentions from the site pages, and the
+  self-host section of the landing page. The site keeps the "Built on OpenStock by
+  Open Dev Society" credit and a "Source code" link in the footer and app sidebar.
+
 The Terms of Service page (`app/(marketing)/terms`) and `LICENSE` are unchanged.

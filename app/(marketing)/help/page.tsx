@@ -1,9 +1,9 @@
 import { Metadata } from 'next';
-import { BookOpen, ChevronDown, Github, Mail } from 'lucide-react';
+import { BookOpen, Bug, ChevronDown, Mail } from 'lucide-react';
 import PageHero from '@/components/marketing/PageHero';
 import SectionHead from '@/components/marketing/SectionHead';
 import IconCard from '@/components/marketing/IconCard';
-import { APP_NAME, REPO_URL, SUPPORT_EMAIL } from '@/lib/constants';
+import { APP_NAME, SUPPORT_EMAIL } from '@/lib/constants';
 
 export const metadata: Metadata = {
     title: 'Help',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const FAQS = [
     {
         question: `Is ${APP_NAME} really free?`,
-        answer: 'Yes. Charts, watchlists and research are free. If you self-host it with your own Finnhub keys, you also get live quotes and email price alerts.',
+        answer: 'Yes. Charts, watchlists and research are free, with no card needed.',
     },
     {
         question: 'How do I add a stock to my watchlist?',
@@ -31,10 +31,6 @@ const FAQS = [
         question: 'My alert hasn’t fired.',
         answer: 'Price alerts only run when realtime mode is on, which this site does not use yet. Where they are on, they are checked every five minutes and emailed to your account address when the price crosses your target. Check the alert’s status on the watchlist page.',
     },
-    {
-        question: 'Where can I see the source code?',
-        answer: `${APP_NAME} is open source under AGPL-3.0. The full code for this site is on GitHub, linked in the footer.`,
-    },
 ];
 
 export default function HelpPage() {
@@ -49,8 +45,8 @@ export default function HelpPage() {
                 <IconCard icon={Mail} title="Email us" footer={<a href={`mailto:${SUPPORT_EMAIL}`} className="btn btn-ghost w-full">{SUPPORT_EMAIL}</a>}>
                     Questions, feedback or account problems. We read every message.
                 </IconCard>
-                <IconCard icon={Github} title="Report a bug" footer={<a href={`${REPO_URL}/issues`} target="_blank" rel="noreferrer" className="btn btn-ghost w-full">Open an issue</a>}>
-                    Found something broken? Tell us on GitHub.
+                <IconCard icon={Bug} title="Report a bug" footer={<a href={`mailto:${SUPPORT_EMAIL}?subject=Bug%20report`} className="btn btn-ghost w-full">Report a bug</a>}>
+                    Found something broken? Tell us what happened and we’ll fix it.
                 </IconCard>
             </section>
 
