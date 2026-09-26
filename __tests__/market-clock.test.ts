@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatSpan, sessionOf } from '@/lib/market-session';
+import { clockForMarket, formatSpan, marketForTimeZone, sessionOf } from '@/lib/market-session';
 
 const at = (h: number, m = 0) => h * 60 + m;
 
@@ -19,6 +19,29 @@ describe('NYSE session', () => {
         // Friday night and Saturday wait for Monday 9:30
         expect(sessionOf(5, at(21)).line).toBe('Market closed · opens in 2d 12h');
         expect(sessionOf(6, at(12)).line).toBe('Market closed · opens in 1d 21h');
+    });
+
+    it('follows the Indian trading day in Mumbai time', () => {
+        const india = clockForMarket('in');
+        expect(india.city).toBe('Mumbai');
+        expect(sessionOf(2, at(8, 30), india).line).toBe('Market closed · opens in 45m');
+        expect(sessionOf(2, at(9, 5), india).line).toBe('Pre-open · opens in 10m');
+        expect(sessionOf(2, at(13, 18), india).line).toBe('Market open · closes in 2h 12m');
+        expect(sessionOf(2, at(15, 45), india).line).toBe('Post-close · ends in 15m');
+        // Between the close and the post-close session, and on Saturday, it waits for the next open
+        expect(sessionOf(2, at(15, 35), india).phase).toBe('closed');
+        expect(sessionOf(6, at(12), india).line).toBe('Market closed · opens in 1d 21h');
+    });
+
+    it('picks the market from the visitor time zone', () => {
+        expect(marketForTimeZone('Asia/Kolkata')).toBe('in');
+        expect(marketForTimeZone('Asia/Calcutta')).toBe('in');
+        expect(marketForTimeZone('Australia/Sydney')).toBe('au');
+        expect(marketForTimeZone('America/Toronto')).toBe('ca');
+        expect(marketForTimeZone('America/Chicago')).toBe('us');
+        expect(marketForTimeZone(undefined)).toBe('us');
+        // Crypto and forex have no trading day, so the dial falls back to New York
+        expect(clockForMarket('crypto').city).toBe('New York');
     });
 
     it('formats spans', () => {

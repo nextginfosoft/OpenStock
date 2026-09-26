@@ -2,49 +2,61 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { MARKET_COOKIE } from "@/lib/markets";
+import { DAY, US_CLOCK, clockForMarket, isWeekday, localNow, marketForTimeZone, sessionOf, type ExchangeClock, type Phase } from "@/lib/market-session";
 
-import { AFTER_END, CLOSE, DAY, OPEN, PRE, isWeekday, newYorkNow, sessionOf, type Phase } from "@/lib/market-session";
+// The market the visitor picked in the app, else the one for their time zone, else New York
+function pickClock(): ExchangeClock {
+    const saved = document.cookie.split('; ').find((c) => c.startsWith(`${MARKET_COOKIE}=`))?.split('=')[1];
+    if (saved) return clockForMarket(saved);
+    return clockForMarket(marketForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone));
+}
 
-function useNewYorkClock() {
-    const [now, setNow] = useState<ReturnType<typeof newYorkNow> | null>(null);
+function useExchangeClock() {
+    const [state, setState] = useState<{ clock: ExchangeClock; now: ReturnType<typeof localNow> } | null>(null);
     useEffect(() => {
-        const tick = () => setNow(newYorkNow(new Date()));
+        const clock = pickClock();
+        const tick = () => setState({ clock, now: localNow(new Date(), clock.timeZone) });
         tick();
         const id = setInterval(tick, 15_000);
         return () => clearInterval(id);
     }, []);
-    return now;
+    return state;
 }
 
 // The live session line for the hero; renders a stable line until the client knows the time.
 export function MarketStatus() {
-    const now = useNewYorkClock();
-    const session = now ? sessionOf(now.weekday, now.minutes) : null;
+    const state = useExchangeClock();
+    const session = state ? sessionOf(state.now.weekday, state.now.minutes, state.clock) : null;
     return (
         <span className="inline-flex h-8 items-center gap-2 rounded-full bg-card px-3.5 text-[13px] font-semibold text-muted-foreground shadow-[inset_0_0_0_1px_var(--line)]">
             <span className={cn('size-1.5 rounded-full', session?.phase === 'open' ? 'bg-up shadow-[0_0_0_3px_oklch(0.70_0.164_150/0.2)]' : session?.phase === 'closed' ? 'bg-faint' : 'bg-warn')} />
-            <span className="num">{session?.line ?? 'NYSE · New York time'}</span>
+            <span className="num">{session && state ? `${state.clock.exchange} · ${session.line}` : 'Market hours · local time'}</span>
         </span>
     );
 }
 
 const R = 88;
 const C = 2 * Math.PI * R;
-const ARCS: { phase: Phase; from: number; to: number; label: string }[] = [
-    { phase: 'pre', from: PRE, to: OPEN, label: 'Pre' },
-    { phase: 'open', from: OPEN, to: CLOSE, label: 'Regular' },
-    { phase: 'after', from: CLOSE, to: AFTER_END, label: 'After' },
+
+const arcsFor = (clock: ExchangeClock): { phase: Phase; from: number; to: number; label: string }[] => [
+    ...(clock.pre ? [{ phase: 'pre' as const, from: clock.pre.from, to: clock.pre.to, label: 'Pre' }] : []),
+    { phase: 'open', from: clock.open, to: clock.close, label: 'Regular' },
+    ...(clock.after ? [{ phase: 'after' as const, from: clock.after.from, to: clock.after.to, label: 'After' }] : []),
 ];
 
-// A 24h dial of the New York trading day. Sessions that aren't happening now are hatched.
+// A 24h dial of the exchange's trading day. Sessions that aren't happening now are hatched.
 export function MarketDial() {
-    const now = useNewYorkClock();
-    const session = now ? sessionOf(now.weekday, now.minutes) : null;
+    const state = useExchangeClock();
+    const clock = state?.clock ?? US_CLOCK;
+    const now = state?.now ?? null;
+    const session = now ? sessionOf(now.weekday, now.minutes, clock) : null;
     const weekend = now ? !isWeekday(now.weekday) : false;
     const markerAngle = now ? (now.minutes / DAY) * 360 : null;
+    const arcs = arcsFor(clock);
 
     return (
-        <figure className="mx-auto w-full max-w-[280px]" aria-label="New York trading sessions">
+        <figure className="mx-auto w-full max-w-[280px]" aria-label={`${state ? clock.city : 'Local'} trading sessions`}>
             <div className="relative aspect-square">
             <svg viewBox="0 0 220 220" className="size-full -rotate-90">
                 <defs>
@@ -54,7 +66,7 @@ export function MarketDial() {
                     </pattern>
                 </defs>
                 <circle cx="110" cy="110" r={R} fill="none" stroke="url(#dial-hatch)" strokeWidth="18" />
-                {ARCS.map(({ phase, from, to }) => {
+                {state && arcs.map(({ phase, from, to }) => {
                     const active = !weekend && session?.phase === phase;
                     return (
                         <circle
@@ -76,12 +88,12 @@ export function MarketDial() {
             <div className="absolute inset-0 grid place-items-center text-center">
                 <span>
                     <span className="mono block text-[34px] font-medium tracking-[-0.04em] text-foreground">{now?.time ?? '--:--'}</span>
-                    <span className="kicker">New York</span>
+                    <span className="kicker">{state ? clock.city : ' '}</span>
                 </span>
             </div>
             </div>
             <ul className="mt-4 flex justify-center gap-4 text-[12px] text-faint">
-                {ARCS.map(({ phase, label }) => (
+                {arcs.map(({ phase, label }) => (
                     <li key={phase} className="flex items-center gap-1.5">
                         <span className={cn('size-2 rounded-full', !weekend && session?.phase === phase ? 'bg-brand' : phase === 'open' ? 'bg-line-strong' : 'bg-hover')} />
                         {label}
