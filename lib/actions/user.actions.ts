@@ -28,6 +28,10 @@ export const getAllUsersForNewsEmail = async () => {
 }
 
 export async function getWatchlistSymbolsByEmail(email: string): Promise<string[]> {
+    return (await getWatchlistByEmail(email)).map((item) => item.symbol);
+}
+
+export async function getWatchlistByEmail(email: string): Promise<{ symbol: string; company: string }[]> {
     if (!email) return [];
 
     try {
@@ -43,10 +47,10 @@ export async function getWatchlistSymbolsByEmail(email: string): Promise<string[
         const userId = (user.id as string) || String(user._id || '');
         if (!userId) return [];
 
-        const items = await Watchlist.find({ userId }, { symbol: 1 }).lean();
-        return items.map((i) => String(i.symbol));
+        const items = await Watchlist.find({ userId }, { symbol: 1, company: 1 }).lean();
+        return items.map((i) => ({ symbol: String(i.symbol), company: String(i.company ?? '') }));
     } catch (err) {
-        console.error('getWatchlistSymbolsByEmail error:', err);
+        console.error('getWatchlistByEmail error:', err);
         return [];
     }
 }

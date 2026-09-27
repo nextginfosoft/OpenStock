@@ -2,7 +2,8 @@ import { SITE_URL } from "@/lib/constants";
 import { inngest } from "@/lib/inngest/client";
 import { NEWS_SUMMARY_EMAIL_PROMPT, PERSONALIZED_WELCOME_EMAIL_PROMPT } from "@/lib/inngest/prompts";
 import { sendNewsSummaryEmail, sendStockAlertEmail, sendWelcomeEmail } from "@/lib/nodemailer";
-import { getAllUsersForNewsEmail, getWatchlistSymbolsByEmail } from "@/lib/actions/user.actions";
+import { getAllUsersForNewsEmail, getWatchlistByEmail } from "@/lib/actions/user.actions";
+import { getIndianStockNews, isIndianSymbol } from "@/lib/google-news";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
 import { callAIProviderWithFallback } from "@/lib/ai-provider";
@@ -76,16 +77,24 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
 
         for (const user of users) {
             const result = await step.run(`digest-${user.id}`, async () => {
-                // Free Finnhub only has company news for US listings; anything else (NSE/BSE, crypto...)
-                // would drop to the general feed, which is world news with no market angle.
-                // Without usable symbols the digest covers well-known companies instead.
-                const watchlist = await getWatchlistSymbolsByEmail(user.email);
-                const newsSymbols = watchlist.filter((s) => hasFinnhubQuotes(s) && !s.toUpperCase().startsWith('BINANCE:'));
-                const source = newsSymbols.length > 0 ? 'watchlist' : watchlist.length > 0 ? 'defaults-unsupported' : 'defaults-empty';
-                const symbols = newsSymbols.length > 0 ? newsSymbols : DEFAULT_DIGEST_SYMBOLS;
+                // US listings: Finnhub company news. Indian listings (NSE/BSE): Google News, which free
+                // Finnhub doesn't cover. Anything else (crypto, other exchanges) has no news source yet.
+                // Without any usable stock the digest covers well-known companies instead of Finnhub's
+                // general feed, which is world news with no market angle.
+                const watchlist = await getWatchlistByEmail(user.email);
+                const usStocks = watchlist.map((w) => w.symbol).filter((s) => hasFinnhubQuotes(s) && !s.toUpperCase().startsWith('BINANCE:'));
+                const indianStocks = watchlist.filter((w) => isIndianSymbol(w.symbol));
+                const hasOwnStocks = usStocks.length + indianStocks.length > 0;
+                const source = hasOwnStocks ? 'watchlist' : watchlist.length > 0 ? 'defaults-unsupported' : 'defaults-empty';
+                const usSymbols = hasOwnStocks ? usStocks : DEFAULT_DIGEST_SYMBOLS;
+                const symbols = [...usSymbols, ...indianStocks.map((w) => w.symbol)];
 
-                const articles = await getNews(symbols);
-                if (!articles || articles.length === 0) return { status: 'no-news', source, symbols };
+                const [usNews, indianNews] = await Promise.all([
+                    usSymbols.length > 0 ? getNews(usSymbols) : Promise.resolve([]),
+                    getIndianStockNews(indianStocks),
+                ]);
+                const articles = [...(usNews ?? []), ...indianNews].sort((a, b) => b.datetime - a.datetime).slice(0, 10);
+                if (articles.length === 0) return { status: 'no-news', source, symbols };
 
                 const prompt = NEWS_SUMMARY_EMAIL_PROMPT
                     .replace('{{newsData}}', JSON.stringify(articles, null, 2))
@@ -111,7 +120,7 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
                     newsContent: nudge + newsContent,
                     unsubscribeUrl: digestUnsubscribeUrl(user.id),
                 });
-                return { status, source, symbols, summary };
+                return { status, source, symbols, articles: { us: usNews?.length ?? 0, india: indianNews.length }, summary };
             });
             if (result.status === 'sent') sent++;
         }
@@ -132,7 +141,7 @@ const EMPTY_WATCHLIST_NOTE = digestNote(
     `to get news about the companies you follow.`);
 
 const UNSUPPORTED_WATCHLIST_NOTE = digestNote(
-    `Weekly news is available for US-listed stocks for now, so this digest covers some of the biggest companies. ` +
+    `Weekly news is available for US and Indian (NSE/BSE) stocks for now, so this digest covers some of the biggest companies. ` +
     `Your watchlist still tracks every stock you've added: ` +
     `<a href="${SITE_URL}/watchlist" style="color: #5fd9c4; font-weight: 600; text-decoration: none;">open your watchlist &rarr;</a>`);
 
