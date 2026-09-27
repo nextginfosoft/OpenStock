@@ -63,6 +63,7 @@ const optionalVars = {
     'NEXT_PUBLIC_PRICE_ALERTS': '"on" to check price alerts every 5 minutes while on-screen prices stay hourly',
     'WHATSAPP_ACCESS_TOKEN': 'WhatsApp Cloud API permanent access token (System User) for WhatsApp alerts',
     'WHATSAPP_PHONE_NUMBER_ID': 'WhatsApp Cloud API phone number ID that sends the alerts',
+    'WHATSAPP_TEMPLATE_WEEKLY_DIGEST': 'Name of the approved weekly digest template (default "stocklens_weekly_digest")',
     'WHATSAPP_TEMPLATE_LANGUAGE': 'Language code of the approved WhatsApp templates (default "en")',
 
     // Kit (ConvertKit) for email broadcasts

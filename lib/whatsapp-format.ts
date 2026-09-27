@@ -33,6 +33,20 @@ export function priceAlertParams({ symbol, currentPrice, targetPrice, condition 
     return [displaySymbol(symbol), money(symbol, currentPrice), condition === 'ABOVE' ? 'above' : 'below', money(symbol, targetPrice)].map(templateText);
 }
 
+const DIGEST_MAX_HEADLINES = 3;
+const DIGEST_HEADLINE_CHARS = 110;
+
+// The weekly digest on WhatsApp: the week's top headlines on one line, each cut to a readable length,
+// e.g. "“Nvidia beats estimates…” · “Apple unveils…”"
+export function digestHeadlines(headlines: string[]): string | null {
+    const picked = headlines
+        .map(templateText)
+        .filter(Boolean)
+        .slice(0, DIGEST_MAX_HEADLINES)
+        .map((h) => `“${h.length > DIGEST_HEADLINE_CHARS ? `${h.slice(0, DIGEST_HEADLINE_CHARS - 1).trimEnd()}…` : h}”`);
+    return picked.length > 0 ? picked.join(' · ') : null;
+}
+
 const WRAP_MAX_STOCKS = 10;
 
 // One line for the daily wrap-up: biggest movers first, e.g. "NVDA +2.1% ($231.40) · AAPL −0.4% ($201.10)"

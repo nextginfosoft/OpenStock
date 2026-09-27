@@ -20,6 +20,8 @@ export const WHATSAPP_TEMPLATES = {
     priceAlert: process.env.WHATSAPP_TEMPLATE_PRICE_ALERT || 'stocklens_price_alert',
     // Utility: {{1}} date, {{2}} one-line list of watchlist moves
     dailyWrap: process.env.WHATSAPP_TEMPLATE_DAILY_WRAP || 'stocklens_daily_wrap',
+    // Utility: {{1}} date, {{2}} the week's top headlines on one line
+    weeklyDigest: process.env.WHATSAPP_TEMPLATE_WEEKLY_DIGEST || 'stocklens_weekly_digest',
 };
 const TEMPLATE_LANGUAGE = process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en';
 
@@ -68,6 +70,10 @@ export function sendWhatsAppPriceAlert(to: string, alert: Parameters<typeof pric
 
 export function sendWhatsAppDailyWrap(to: string, date: string, line: string) {
     return sendTemplate(to, WHATSAPP_TEMPLATES.dailyWrap, [body(date, line)]);
+}
+
+export function sendWhatsAppWeeklyDigest(to: string, date: string, headlines: string) {
+    return sendTemplate(to, WHATSAPP_TEMPLATES.weeklyDigest, [body(date, headlines)]);
 }
 
 // Codes are stored as a keyed hash, so a database leak doesn't reveal pending codes

@@ -15,6 +15,7 @@ type WhatsAppDoc = {
     verifiedAt?: Date;
     priceAlerts?: boolean;
     dailyWrap?: boolean;
+    weeklyDigest?: boolean;
     pending?: { number: string; codeHash: string; expiresAt: Date; attempts: number; sentAt: Date };
     // Codes sent today, so the form can't be used to message arbitrary numbers at our cost
     codeSends?: { day: string; count: number };
@@ -39,6 +40,7 @@ export type WhatsAppStatus = {
     pendingNumber: string | null;
     priceAlerts: boolean;
     dailyWrap: boolean;
+    weeklyDigest: boolean;
 };
 
 export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
@@ -52,6 +54,7 @@ export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
         pendingNumber: pending ? maskPhone(pending.number) : null,
         priceAlerts: doc?.priceAlerts ?? true,
         dailyWrap: doc?.dailyWrap ?? true,
+        weeklyDigest: doc?.weeklyDigest ?? true,
     };
 }
 
@@ -119,7 +122,7 @@ export async function confirmWhatsAppCode(input: string) {
     await alerts.updateOne(
         { userId },
         {
-            $set: { number: pending.number, verified: true, verifiedAt: new Date(), priceAlerts: doc?.priceAlerts ?? true, dailyWrap: doc?.dailyWrap ?? true },
+            $set: { number: pending.number, verified: true, verifiedAt: new Date(), priceAlerts: doc?.priceAlerts ?? true, dailyWrap: doc?.dailyWrap ?? true, weeklyDigest: doc?.weeklyDigest ?? true },
             $unset: { pending: '' },
         },
     );
@@ -127,11 +130,11 @@ export async function confirmWhatsAppCode(input: string) {
     return { success: true };
 }
 
-export async function setWhatsAppPreferences(prefs: { priceAlerts: boolean; dailyWrap: boolean }) {
+export async function setWhatsAppPreferences(prefs: { priceAlerts: boolean; dailyWrap: boolean; weeklyDigest: boolean }) {
     const userId = await requireUserId();
     await (await collection()).updateOne(
         { userId, verified: true },
-        { $set: { priceAlerts: Boolean(prefs.priceAlerts), dailyWrap: Boolean(prefs.dailyWrap) } },
+        { $set: { priceAlerts: Boolean(prefs.priceAlerts), dailyWrap: Boolean(prefs.dailyWrap), weeklyDigest: Boolean(prefs.weeklyDigest) } },
     );
     revalidatePath('/profile');
     return { success: true };

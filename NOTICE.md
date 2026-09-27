@@ -54,5 +54,6 @@ Based on OpenStock at upstream commit `87df76a`.
 - Indian (NSE/BSE) stock news via Google News RSS; a backup chain of AI providers.
 - WhatsApp alerts: number verification on the profile page, price alerts and a weekday
   morning wrap-up via the WhatsApp Cloud API; price alerts can run without realtime mode.
+- The weekly digest's top headlines on WhatsApp, with its own switch on the profile page.
 
 The Terms of Service page (`app/(marketing)/terms`) and `LICENSE` are unchanged.

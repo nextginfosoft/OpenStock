@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskPhone, normalizePhone, priceAlertParams, templateText, wrapLine } from '@/lib/whatsapp-format';
+import { digestHeadlines, maskPhone, normalizePhone, priceAlertParams, templateText, wrapLine } from '@/lib/whatsapp-format';
 
 describe('WhatsApp phone numbers', () => {
     it('treats a bare 10-digit mobile number as Indian', () => {
@@ -56,5 +56,15 @@ describe('WhatsApp message text', () => {
     it('has nothing to send without usable quotes', () => {
         expect(wrapLine([])).toBeNull();
         expect(wrapLine([{ symbol: 'X', price: 0, changePercent: 1 }])).toBeNull();
+    });
+
+    it('puts up to three headlines on one line for the weekly digest', () => {
+        expect(digestHeadlines(['Nvidia beats\nestimates', 'Apple unveils a phone', 'Third', 'Fourth']))
+            .toBe('“Nvidia beats estimates” · “Apple unveils a phone” · “Third”');
+        const long = digestHeadlines(['x'.repeat(300)])!;
+        expect(long.length).toBeLessThanOrEqual(112);
+        expect(long.endsWith('…”')).toBe(true);
+        expect(digestHeadlines([])).toBeNull();
+        expect(digestHeadlines(['  ', ''])).toBeNull();
     });
 });

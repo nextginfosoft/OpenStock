@@ -3,6 +3,7 @@
 
 import {connectToDatabase} from "@/database/mongoose";
 import { Watchlist } from "@/database/models/watchlist.model";
+import { ObjectId } from "mongodb";
 
 export const getAllUsersForNewsEmail = async () => {
     try {
@@ -24,6 +25,37 @@ export const getAllUsersForNewsEmail = async () => {
     } catch (e) {
         console.error('Error fetching users for news email:', e)
         return []
+    }
+}
+
+// Verified WhatsApp numbers that want the weekly digest, with their owners. Independent of the
+// email digest: someone can unsubscribe from the email and still get it on WhatsApp.
+export const getWhatsAppDigestSubscribers = async () => {
+    try {
+        const mongoose = await connectToDatabase();
+        const db = mongoose.connection.db;
+        if (!db) throw new Error('Mongoose connection not connected');
+
+        const docs = await db.collection('whatsapp_alerts')
+            .find({ verified: true, weeklyDigest: { $ne: false }, number: { $exists: true } }, { projection: { userId: 1, number: 1 } })
+            .toArray();
+        if (docs.length === 0) return [];
+
+        const ids = docs.map((d) => String(d.userId));
+        const objectIds = ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id));
+        const users = await db.collection('user').find(
+            { $or: [{ _id: { $in: objectIds } }, { id: { $in: ids } }], email: { $exists: true, $ne: null } },
+            { projection: { _id: 1, id: 1, email: 1, name: 1 } },
+        ).toArray();
+        const byId = new Map(users.map((u) => [String(u.id || u._id), u]));
+
+        return docs.flatMap((d) => {
+            const user = byId.get(String(d.userId));
+            return user?.email ? [{ id: String(d.userId), email: String(user.email), name: String(user.name ?? ''), number: String(d.number) }] : [];
+        });
+    } catch (e) {
+        console.error('Error fetching WhatsApp digest subscribers:', e);
+        return [];
     }
 }
 

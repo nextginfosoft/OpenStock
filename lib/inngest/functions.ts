@@ -2,7 +2,7 @@ import { SITE_URL } from "@/lib/constants";
 import { inngest } from "@/lib/inngest/client";
 import { NEWS_SUMMARY_EMAIL_PROMPT, PERSONALIZED_WELCOME_EMAIL_PROMPT } from "@/lib/inngest/prompts";
 import { sendNewsSummaryEmail, sendStockAlertEmail, sendWelcomeEmail } from "@/lib/nodemailer";
-import { getAllUsersForNewsEmail, getWatchlistByEmail } from "@/lib/actions/user.actions";
+import { getAllUsersForNewsEmail, getWatchlistByEmail, getWhatsAppDigestSubscribers } from "@/lib/actions/user.actions";
 import { getIndianStockNews, isIndianSymbol } from "@/lib/google-news";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
@@ -10,8 +10,8 @@ import { createHash } from "node:crypto";
 import { callAIProviderChain, isRetryableAIError } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 import { hasFinnhubQuotes } from "@/lib/markets";
-import { sendWhatsAppDailyWrap, sendWhatsAppPriceAlert, whatsappConfigured } from "@/lib/whatsapp";
-import { wrapLine } from "@/lib/whatsapp-format";
+import { sendWhatsAppDailyWrap, sendWhatsAppPriceAlert, sendWhatsAppWeeklyDigest, whatsappConfigured } from "@/lib/whatsapp";
+import { digestHeadlines, wrapLine } from "@/lib/whatsapp-format";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email', triggers: [{ event: 'app/user.created' }] },
@@ -104,7 +104,9 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
     ]);
     const articles = [...(usNews ?? []), ...indianNews].sort((a, b) => b.datetime - a.datetime).slice(0, 10);
     const counts = { us: usNews?.length ?? 0, india: indianNews.length };
-    if (articles.length === 0) return { newsContent: null, summary: 'no-news', articles: counts };
+    if (articles.length === 0) return { newsContent: null, summary: 'no-news', articles: counts, headlines: [] as string[] };
+    // The WhatsApp digest carries the top headlines rather than the long AI summary
+    const headlines = articles.slice(0, 3).map((a) => a.headline);
 
     const prompt = NEWS_SUMMARY_EMAIL_PROMPT
         .replace('{{newsData}}', JSON.stringify(articles, null, 2))
@@ -114,13 +116,13 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
     try {
         const { text, provider, skipped } = await callAIProviderChain(prompt);
         const summary = skipped.length > 0 ? `ai (${provider}) | skipped: ${skipped.join('; ')}` : `ai (${provider})`;
-        return { newsContent: text, summary, articles: counts };
+        return { newsContent: text, summary, articles: counts, headlines };
     } catch (error) {
         // Throwing makes Inngest retry this step with backoff; the last attempt, or an error a
         // retry can't fix (like a used-up quota), falls back to the headline list
         if (isRetryableAIError(error) && attempt < AI_ATTEMPTS - 1) throw error;
         const reason = error instanceof Error ? error.message : String(error);
-        return { newsContent: headlinesHtml(articles), summary: `headlines (AI failed: ${reason})`, articles: counts };
+        return { newsContent: headlinesHtml(articles), summary: `headlines (AI failed: ${reason})`, articles: counts, headlines };
     }
 }
 
@@ -134,9 +136,22 @@ const stepKey = (key: string) => createHash('sha1').update(key).digest('hex').sl
 export const sendWeeklyNewsSummary = inngest.createFunction(
     { id: 'weekly-news-summary', triggers: [{ event: 'app/send.weekly.news' }, { cron: 'TZ=Asia/Kolkata 0 9 * * 1' }] },
     async ({ step, attempt }) => {
+        // Email subscribers and WhatsApp digest subscribers are separate lists; each user gets one
+        // plan with the channels they chose
         const plans = await step.run('plan-digests', async () => {
-            const users = await getAllUsersForNewsEmail();
-            return Promise.all(users.map(async (user) => planDigest(user, await getWatchlistByEmail(user.email))));
+            const emailUsers = await getAllUsersForNewsEmail();
+            const whatsappUsers = whatsappConfigured() ? await getWhatsAppDigestSubscribers() : [];
+            const users = new Map<string, DigestPlan['user'] & { byEmail: boolean; whatsapp: string | null }>();
+            for (const user of emailUsers) users.set(user.id, { ...user, byEmail: true, whatsapp: null });
+            for (const { number, ...user } of whatsappUsers) {
+                const existing = users.get(user.id);
+                users.set(user.id, existing ? { ...existing, whatsapp: number } : { ...user, byEmail: false, whatsapp: number });
+            }
+            return Promise.all([...users.values()].map(async ({ byEmail, whatsapp, ...user }) => ({
+                ...planDigest(user, await getWatchlistByEmail(user.email)),
+                byEmail,
+                whatsapp,
+            })));
         });
         if (plans.length === 0) return { message: 'No subscribed users.' };
 
@@ -148,23 +163,38 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
 
         const date = getFormattedTodayDate();
         let sent = 0;
+        let sentWhatsApp = 0;
         for (const plan of plans) {
             const digest = summaries.get(plan.key)!;
             const result = await step.run(`send-${plan.user.id}`, async () => {
                 if (!digest.newsContent) return { status: 'no-news', stocks: plan.key };
-                const note = plan.source === 'defaults-empty' ? EMPTY_WATCHLIST_NOTE : plan.source === 'defaults-unsupported' ? UNSUPPORTED_WATCHLIST_NOTE : '';
-                const { status } = await sendNewsSummaryEmail({
-                    email: plan.user.email,
-                    date,
-                    newsContent: note + digest.newsContent,
-                    unsubscribeUrl: digestUnsubscribeUrl(plan.user.id),
-                });
-                return { status, source: plan.source, stocks: plan.key, summary: digest.summary };
+                let status = 'not-subscribed';
+                if (plan.byEmail) {
+                    const note = plan.source === 'defaults-empty' ? EMPTY_WATCHLIST_NOTE : plan.source === 'defaults-unsupported' ? UNSUPPORTED_WATCHLIST_NOTE : '';
+                    ({ status } = await sendNewsSummaryEmail({
+                        email: plan.user.email,
+                        date,
+                        newsContent: note + digest.newsContent,
+                        unsubscribeUrl: digestUnsubscribeUrl(plan.user.id),
+                    }));
+                }
+                // Sent last and never thrown: a retry of this step would email the user again
+                let whatsapp = plan.whatsapp ? 'no-headlines' : 'not-subscribed';
+                const headlines = digestHeadlines(digest.headlines ?? []);
+                if (plan.whatsapp && headlines) {
+                    try {
+                        whatsapp = (await sendWhatsAppWeeklyDigest(plan.whatsapp, date, headlines)).status;
+                    } catch (error) {
+                        whatsapp = `failed: ${error instanceof Error ? error.message : String(error)}`;
+                    }
+                }
+                return { status, whatsapp, source: plan.source, stocks: plan.key, summary: digest.summary };
             });
             if (result.status === 'sent') sent++;
+            if ('whatsapp' in result && result.whatsapp === 'sent') sentWhatsApp++;
         }
 
-        return { success: true, sent, subscribers: plans.length, summaries: summaries.size };
+        return { success: true, sent, sentWhatsApp, subscribers: plans.length, summaries: summaries.size };
     }
 )
 

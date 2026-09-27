@@ -25,7 +25,7 @@ const FLOW = ['A user signs up, or a cron fires', 'Inngest runs the function', '
 
 const JOBS = [
     { icon: Mail, title: 'Welcome email', trigger: 'On sign-up', body: 'An AI-written intro tailored to the country, goal, risk and industry picked at sign-up.' },
-    { icon: BarChart2, title: 'Weekly digest', trigger: 'Mon 09:00 IST', body: 'An AI summary of the week’s news for each user’s own watchlist, sent to every subscriber, with a one-click unsubscribe.' },
+    { icon: BarChart2, title: 'Weekly digest', trigger: 'Mon 09:00 IST', body: 'An AI summary of the week’s news for each user’s own watchlist, sent to every subscriber, with a one-click unsubscribe. The top headlines also go out on WhatsApp to those who chose it.' },
     { icon: Clock, title: 'Price alerts', trigger: 'Every 5 min', body: 'Checks every active alert against live Finnhub quotes and notifies the owner by email and WhatsApp when one fires.' },
     { icon: MessageCircle, title: 'WhatsApp wrap-up', trigger: 'Weekdays 08:30 IST', body: 'How the US stocks and crypto on each subscriber’s watchlist moved in the last session, one line per stock.' },
 ];

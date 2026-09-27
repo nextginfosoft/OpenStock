@@ -35,12 +35,12 @@ export default function WhatsAppAlerts({ initial }: { initial: WhatsAppStatus })
         const result = await confirmWhatsAppCode(code);
         if (!result.success) return void toast.error('Not verified', { description: result.error });
         toast.success('WhatsApp connected', { description: 'You’ll get alerts on WhatsApp from now on.' });
-        setStatus((s) => ({ ...s, verified: true, number: s.pendingNumber, pendingNumber: null, priceAlerts: true, dailyWrap: true }));
+        setStatus((s) => ({ ...s, verified: true, number: s.pendingNumber, pendingNumber: null, priceAlerts: true, dailyWrap: true, weeklyDigest: true }));
         setCode('');
     });
 
-    const toggle = (key: 'priceAlerts' | 'dailyWrap', value: boolean) => startTransition(async () => {
-        const next = { priceAlerts: status.priceAlerts, dailyWrap: status.dailyWrap, [key]: value };
+    const toggle = (key: 'priceAlerts' | 'dailyWrap' | 'weeklyDigest', value: boolean) => startTransition(async () => {
+        const next = { priceAlerts: status.priceAlerts, dailyWrap: status.dailyWrap, weeklyDigest: status.weeklyDigest, [key]: value };
         setStatus((s) => ({ ...s, ...next }));
         const result = await setWhatsAppPreferences(next);
         if (!result.success) {
@@ -68,6 +68,11 @@ export default function WhatsAppAlerts({ initial }: { initial: WhatsAppStatus })
                     <input type="checkbox" className="mt-1 size-4 accent-[var(--brand)]" checked={status.dailyWrap} disabled={pending}
                         onChange={(e) => toggle('dailyWrap', e.target.checked)} />
                     <span><b>Morning wrap-up</b><br /><span className="text-muted-foreground">Weekdays at 8:30 IST: how your watchlist’s US stocks and crypto moved.</span></span>
+                </label>
+                <label className="flex items-start gap-3 text-[14px]">
+                    <input type="checkbox" className="mt-1 size-4 accent-[var(--brand)]" checked={status.weeklyDigest} disabled={pending}
+                        onChange={(e) => toggle('weeklyDigest', e.target.checked)} />
+                    <span><b>Weekly digest</b><br /><span className="text-muted-foreground">Mondays at 9:00 IST: the week’s top news for your watchlist.</span></span>
                 </label>
                 <button type="button" onClick={disconnect} disabled={pending} className="btn btn-ghost self-start">Remove number</button>
             </div>

@@ -33,7 +33,7 @@ const FAQS = [
     },
     {
         question: 'How do WhatsApp alerts work?',
-        answer: 'Connect your number on your profile page and confirm it with the code we send on WhatsApp. You can then get price alerts and a morning wrap-up of your watchlist’s US stocks and crypto. Turn either off, or remove your number, on your profile page at any time; replies in the WhatsApp chat aren’t read by StockLens.',
+        answer: 'Connect your number on your profile page and confirm it with the code we send on WhatsApp. You can then get price alerts, a morning wrap-up of your watchlist’s US stocks and crypto, and the weekly digest’s top headlines on Mondays. Turn any of them off, or remove your number, on your profile page at any time; replies in the WhatsApp chat aren’t read by StockLens.',
     },
 ];
 
