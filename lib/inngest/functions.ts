@@ -72,8 +72,11 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
 
         for (const user of users) {
             const result = await step.run(`digest-${user.id}`, async () => {
-                const symbols = await getWatchlistSymbolsByEmail(user.email);
-                const articles = await getNews(symbols);
+                // An empty watchlist gets news for well-known companies, not Finnhub's general feed,
+                // which mixes in world news with no market angle
+                const watchlist = await getWatchlistSymbolsByEmail(user.email);
+                const usingDefaults = watchlist.length === 0;
+                const articles = await getNews(usingDefaults ? DEFAULT_DIGEST_SYMBOLS : watchlist);
                 if (!articles || articles.length === 0) return 'no-news';
 
                 const prompt = NEWS_SUMMARY_EMAIL_PROMPT
@@ -92,7 +95,7 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
                 const { status } = await sendNewsSummaryEmail({
                     email: user.email,
                     date,
-                    newsContent,
+                    newsContent: usingDefaults ? WATCHLIST_NUDGE_HTML + newsContent : newsContent,
                     unsubscribeUrl: digestUnsubscribeUrl(user.id),
                 });
                 return status;
@@ -103,6 +106,14 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
         return { success: true, sent, subscribers: users.length };
     }
 )
+
+const DEFAULT_DIGEST_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL'];
+
+const WATCHLIST_NUDGE_HTML =
+    `<div style="background-color: #212328; padding: 18px 20px; margin: 0 0 28px 0; border-radius: 8px; border-left: 3px solid #5fd9c4;">` +
+    `<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #CCDADC;">Your watchlist is empty, so this week's digest covers some of the biggest companies. ` +
+    `<a href="${SITE_URL}/watchlist" style="color: #5fd9c4; font-weight: 600; text-decoration: none;">Add stocks to your watchlist &rarr;</a> ` +
+    `to get news about the companies you follow.</p></div>`;
 
 // Plain list of headlines, used when no AI provider is available
 function headlinesHtml(articles: MarketNewsArticle[]) {

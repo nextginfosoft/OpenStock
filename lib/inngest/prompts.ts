@@ -52,6 +52,12 @@ export const NEWS_SUMMARY_EMAIL_PROMPT = `Generate HTML content for a market new
 News data to summarize:
 {{newsData}}
 
+CONTENT RULES:
+- This is a stock market newsletter for investors. Only include stories that matter to markets:
+  companies, earnings, deals, products, sectors, the economy, interest rates, currencies and commodities.
+- Skip stories with no clear market angle (crime, accidents, politics, sport, entertainment), even if they appear in the data.
+- If none of the stories are market-relevant, write one short paragraph saying it was a quiet week for these stocks.
+
 CRITICAL FORMATTING REQUIREMENTS:
 - Return ONLY clean HTML content with NO markdown, NO code blocks, NO backticks
 - Structure content with clear sections using proper HTML headings and paragraphs
