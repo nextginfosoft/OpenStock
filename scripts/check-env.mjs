@@ -56,6 +56,10 @@ const optionalVars = {
 
     // MiniMax (optional AI provider fallback)
     'MINIMAX_API_KEY': 'MiniMax API key (used when AI_PROVIDER=minimax or as fallback)',
+    'GROQ_API_KEY': 'Groq API key (free tier; backup AI provider)',
+    'OPENROUTER_API_KEY': 'OpenRouter API key (backup AI provider; free models by default)',
+    'DEEPSEEK_API_KEY': 'DeepSeek API key (paid backup AI provider)',
+    'OPENAI_API_KEY': 'OpenAI API key (paid backup AI provider)',
 
     // Kit (ConvertKit) for email broadcasts
     'KIT_API_KEY': 'ConvertKit API key (for news summary broadcasts)',

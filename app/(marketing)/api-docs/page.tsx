@@ -21,7 +21,7 @@ const COVERAGE = [
     ['India (BSE), Germany', 'End of day', 'No'],
 ];
 
-const FLOW = ['A user signs up, or a cron fires', 'Inngest runs the function', 'Gemini writes the text', 'MiniMax takes over if Gemini fails', 'The email goes out'];
+const FLOW = ['A user signs up, or a cron fires', 'Inngest runs the function', 'Gemini writes the text', 'Groq, OpenRouter, DeepSeek or OpenAI take over if it fails', 'The email goes out'];
 
 const JOBS = [
     { icon: Mail, title: 'Welcome email', trigger: 'On sign-up', body: 'An AI-written intro tailored to the country, goal, risk and industry picked at sign-up.' },
@@ -46,7 +46,7 @@ export default function ArchitecturePage() {
                 sub="A transparent look at the event-driven, multi-provider system behind your market data and emails."
             >
                 <span className="pill h-8 px-3">v1.0.0</span>
-                <span className="pill h-8 px-3">Gemini with MiniMax fallback</span>
+                <span className="pill h-8 px-3">Gemini with backup AI providers</span>
                 <span className="pill h-8 px-3">Built on {UPSTREAM_NAME}</span>
             </PageHero>
 
@@ -86,7 +86,7 @@ export default function ArchitecturePage() {
 
             <section className="mx-auto mt-24 grid max-w-[1200px] items-start gap-10 px-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <div>
-                    <SectionHead kicker="AI" title="Emails that don’t go down with a provider." sub="Welcome emails and news summaries are written by Gemini 2.5 Flash-Lite. If it fails, the request is retried on MiniMax-M3, or any OpenAI-compatible provider you configure." />
+                    <SectionHead kicker="AI" title="Emails that don’t go down with a provider." sub="Welcome emails and news summaries are written by Gemini 2.5 Flash-Lite. If it fails, the request moves down a chain of backup providers (Groq, OpenRouter, DeepSeek, OpenAI), free ones first. Readers with the same stocks share one summary." />
                 </div>
                 <div className="hatch">
                     <ol className="card flex flex-col gap-1 p-4">

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getProviderConfig,
-  getFallbackProviderName,
+  getProviderChain,
   callAIProvider,
   callAIProviderWithFallback,
+  isRetryableAIError,
   type AIProviderName,
 } from "@/lib/ai-provider";
 
@@ -68,32 +69,74 @@ describe("getProviderConfig", () => {
   });
 });
 
-// ── getFallbackProviderName ────────────────────────────────────────
+// ── new OpenAI-compatible providers ────────────────────────────────
 
-describe("getFallbackProviderName", () => {
+describe("getProviderConfig for Groq, OpenRouter, DeepSeek and OpenAI", () => {
   const originalEnv = { ...process.env };
 
   afterEach(() => {
     process.env = { ...originalEnv };
   });
 
-  it("returns minimax when primary is gemini and MINIMAX_API_KEY is set", () => {
-    process.env.MINIMAX_API_KEY = "k";
-    expect(getFallbackProviderName("gemini")).toBe("minimax");
+  it.each([
+    ["groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"],
+    ["openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free"],
+    ["deepseek", "DEEPSEEK_API_KEY", "https://api.deepseek.com/v1", "deepseek-chat"],
+    ["openai", "OPENAI_API_KEY", "https://api.openai.com/v1", "gpt-4o-mini"],
+  ] as const)("%s reads %s and has sensible defaults", (name, keyVar, baseUrl, model) => {
+    process.env[keyVar] = "k";
+    const config = getProviderConfig(name);
+    expect(config).toEqual({ name, apiKey: "k", baseUrl, model });
   });
 
-  it("returns siray when primary is gemini and only SIRAY_API_KEY is set", () => {
-    delete process.env.MINIMAX_API_KEY;
-    process.env.SIRAY_API_KEY = "s";
-    expect(getFallbackProviderName("gemini")).toBe("siray");
+  it("lets <NAME>_MODEL override the model", () => {
+    process.env.GROQ_MODEL = "llama-3.1-8b-instant";
+    process.env.OPENAI_MODEL = "gpt-4.1-mini";
+    expect(getProviderConfig("groq").model).toBe("llama-3.1-8b-instant");
+    expect(getProviderConfig("openai").model).toBe("gpt-4.1-mini");
+  });
+});
+
+// ── getProviderChain ───────────────────────────────────────────────
+
+const KEY_VARS = ["GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "MINIMAX_API_KEY", "SIRAY_API_KEY"];
+
+describe("getProviderChain", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    for (const key of [...KEY_VARS, "AI_PROVIDER", "AI_FALLBACK_ORDER"]) delete process.env[key];
   });
 
-  it("returns gemini when primary is minimax", () => {
-    expect(getFallbackProviderName("minimax")).toBe("gemini");
+  afterEach(() => {
+    process.env = { ...originalEnv };
   });
 
-  it("returns gemini when primary is siray", () => {
-    expect(getFallbackProviderName("siray")).toBe("gemini");
+  it("keeps only providers that have a key, free ones before paid ones", () => {
+    process.env.OPENAI_API_KEY = "o";
+    process.env.GEMINI_API_KEY = "g";
+    process.env.DEEPSEEK_API_KEY = "d";
+    process.env.GROQ_API_KEY = "q";
+    expect(getProviderChain()).toEqual(["gemini", "groq", "deepseek", "openai"]);
+  });
+
+  it("puts AI_PROVIDER first", () => {
+    process.env.AI_PROVIDER = "deepseek";
+    process.env.GEMINI_API_KEY = "g";
+    process.env.DEEPSEEK_API_KEY = "d";
+    expect(getProviderChain()).toEqual(["deepseek", "gemini"]);
+  });
+
+  it("follows AI_FALLBACK_ORDER and ignores unknown names", () => {
+    process.env.AI_FALLBACK_ORDER = "openai, bogus, groq";
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GROQ_API_KEY = "q";
+    process.env.OPENAI_API_KEY = "o";
+    expect(getProviderChain()).toEqual(["gemini", "openai", "groq"]);
+  });
+
+  it("is empty when no key is set", () => {
+    expect(getProviderChain()).toEqual([]);
   });
 });
 
@@ -258,10 +301,66 @@ describe("callAIProviderWithFallback", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    for (const key of [...KEY_VARS, "AI_PROVIDER", "AI_FALLBACK_ORDER"]) delete process.env[key];
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
+  });
+
+  it("walks the whole chain until a provider answers", async () => {
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GROQ_API_KEY = "q";
+    process.env.DEEPSEEK_API_KEY = "d";
+
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        calls.push(new URL(url).hostname);
+        if (url.includes("deepseek")) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ choices: [{ message: { content: "DeepSeek answer" } }] }) });
+        }
+        return Promise.resolve({ ok: false, status: 429, statusText: "Too Many Requests" });
+      })
+    );
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await callAIProviderWithFallback("test")).toBe("DeepSeek answer");
+    expect(calls).toEqual(["generativelanguage.googleapis.com", "api.groq.com", "api.deepseek.com"]);
+    consoleSpy.mockRestore();
+  });
+
+  it("names every provider's reason when all fail, and is not retryable on quota errors", async () => {
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GROQ_API_KEY = "q";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 429, statusText: "Too Many Requests" }));
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = await callAIProviderWithFallback("test").catch((e) => e);
+    expect(error.message).toContain("gemini: Gemini API error: 429");
+    expect(error.message).toContain("groq: groq API error: 429");
+    expect(isRetryableAIError(error)).toBe(false);
+    consoleSpy.mockRestore();
+  });
+
+  it("is retryable when a provider had a server error", async () => {
+    process.env.GEMINI_API_KEY = "g";
+    process.env.GROQ_API_KEY = "q";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve(url.includes("groq") ? { ok: false, status: 503, statusText: "Unavailable" } : { ok: false, status: 429, statusText: "Too Many Requests" })
+      )
+    );
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(isRetryableAIError(await callAIProviderWithFallback("test").catch((e) => e))).toBe(true);
+    consoleSpy.mockRestore();
+  });
+
+  it("fails clearly when no provider has a key", async () => {
+    await expect(callAIProviderWithFallback("test")).rejects.toThrow("No AI provider is configured");
   });
 
   it("returns primary provider result on success", async () => {

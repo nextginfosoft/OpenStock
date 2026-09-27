@@ -6,7 +6,8 @@ import { getAllUsersForNewsEmail, getWatchlistByEmail } from "@/lib/actions/user
 import { getIndianStockNews, isIndianSymbol } from "@/lib/google-news";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
-import { callAIProviderWithFallback } from "@/lib/ai-provider";
+import { createHash } from "node:crypto";
+import { callAIProviderWithFallback, isRetryableAIError } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 import { hasFinnhubQuotes } from "@/lib/markets";
 
@@ -60,72 +61,104 @@ export const sendSignUpEmail = inngest.createFunction(
     }
 )
 
-// AI attempts before an email goes out with the plain headline list instead of a summary
+// AI attempts before a digest goes out with the plain headline list instead of a summary.
+// Only errors that can clear up soon (timeouts, server errors) are retried; quota and auth
+// errors fall back straight away.
 const AI_ATTEMPTS = 3;
 
-// Every Monday 9:00 IST: one email per subscribed user, summarising the news for their own
-// watchlist. Each user is its own step, so one failed send is retried on its own and never blocks
-// or repeats the others. Each step returns what it did, so the Inngest run shows it per user.
+type DigestPlan = {
+    user: { id: string; email: string; name: string };
+    source: 'watchlist' | 'defaults-unsupported' | 'defaults-empty';
+    usSymbols: string[];
+    indianStocks: { symbol: string; company: string }[];
+    key: string;
+};
+
+// Which stocks a user's digest covers. US listings: Finnhub company news. Indian listings
+// (NSE/BSE): Google News, which free Finnhub doesn't cover. Anything else (crypto, other
+// exchanges) has no news source yet. Without any usable stock the digest covers well-known
+// companies instead of Finnhub's general feed, which is world news with no market angle.
+export function planDigest(user: DigestPlan['user'], watchlist: { symbol: string; company: string }[]): DigestPlan {
+    const usStocks = watchlist.map((w) => w.symbol).filter((s) => hasFinnhubQuotes(s) && !s.toUpperCase().startsWith('BINANCE:'));
+    const indianStocks = watchlist.filter((w) => isIndianSymbol(w.symbol));
+    const hasOwnStocks = usStocks.length + indianStocks.length > 0;
+    const usSymbols = hasOwnStocks ? usStocks : DEFAULT_DIGEST_SYMBOLS;
+    return {
+        user,
+        source: hasOwnStocks ? 'watchlist' : watchlist.length > 0 ? 'defaults-unsupported' : 'defaults-empty',
+        usSymbols,
+        indianStocks,
+        key: [...usSymbols, ...indianStocks.map((w) => w.symbol)].sort().join(','),
+    };
+}
+
+// News + AI summary for one set of stocks. Returns null content when there is no news.
+async function buildDigestSummary(plan: DigestPlan, attempt: number) {
+    const [usNews, indianNews] = await Promise.all([
+        plan.usSymbols.length > 0 ? getNews(plan.usSymbols) : Promise.resolve([]),
+        getIndianStockNews(plan.indianStocks),
+    ]);
+    const articles = [...(usNews ?? []), ...indianNews].sort((a, b) => b.datetime - a.datetime).slice(0, 10);
+    const counts = { us: usNews?.length ?? 0, india: indianNews.length };
+    if (articles.length === 0) return { newsContent: null, summary: 'no-news', articles: counts };
+
+    const prompt = NEWS_SUMMARY_EMAIL_PROMPT
+        .replace('{{newsData}}', JSON.stringify(articles, null, 2))
+        .replace(/daily/g, 'weekly')
+        .replace(/Daily/g, 'Weekly');
+
+    try {
+        return { newsContent: await callAIProviderWithFallback(prompt), summary: 'ai', articles: counts };
+    } catch (error) {
+        // Throwing makes Inngest retry this step with backoff; the last attempt, or an error a
+        // retry can't fix (like a used-up quota), falls back to the headline list
+        if (isRetryableAIError(error) && attempt < AI_ATTEMPTS - 1) throw error;
+        const reason = error instanceof Error ? error.message : String(error);
+        return { newsContent: headlinesHtml(articles), summary: `headlines (AI failed: ${reason})`, articles: counts };
+    }
+}
+
+const stepKey = (key: string) => createHash('sha1').update(key).digest('hex').slice(0, 12);
+
+// Every Monday 9:00 IST: one email per subscribed user about the stocks on their own watchlist.
+// Users with the same stocks (every empty watchlist, for one) share a single AI summary, so AI
+// calls grow with distinct watchlists, not users. Each summary and each send is its own step:
+// a failure is retried on its own and never blocks or repeats the others, and every step
+// returns what it did, so the Inngest run shows it.
 export const sendWeeklyNewsSummary = inngest.createFunction(
     { id: 'weekly-news-summary', triggers: [{ event: 'app/send.weekly.news' }, { cron: 'TZ=Asia/Kolkata 0 9 * * 1' }] },
     async ({ step, attempt }) => {
-        const users = await step.run('get-subscribers', () => getAllUsersForNewsEmail());
-        if (users.length === 0) return { message: 'No subscribed users.' };
+        const plans = await step.run('plan-digests', async () => {
+            const users = await getAllUsersForNewsEmail();
+            return Promise.all(users.map(async (user) => planDigest(user, await getWatchlistByEmail(user.email))));
+        });
+        if (plans.length === 0) return { message: 'No subscribed users.' };
+
+        const summaries = new Map<string, Awaited<ReturnType<typeof buildDigestSummary>>>();
+        for (const plan of plans) {
+            if (summaries.has(plan.key)) continue;
+            summaries.set(plan.key, await step.run(`summary-${stepKey(plan.key)}`, () => buildDigestSummary(plan, attempt)));
+        }
 
         const date = getFormattedTodayDate();
         let sent = 0;
-
-        for (const user of users) {
-            const result = await step.run(`digest-${user.id}`, async () => {
-                // US listings: Finnhub company news. Indian listings (NSE/BSE): Google News, which free
-                // Finnhub doesn't cover. Anything else (crypto, other exchanges) has no news source yet.
-                // Without any usable stock the digest covers well-known companies instead of Finnhub's
-                // general feed, which is world news with no market angle.
-                const watchlist = await getWatchlistByEmail(user.email);
-                const usStocks = watchlist.map((w) => w.symbol).filter((s) => hasFinnhubQuotes(s) && !s.toUpperCase().startsWith('BINANCE:'));
-                const indianStocks = watchlist.filter((w) => isIndianSymbol(w.symbol));
-                const hasOwnStocks = usStocks.length + indianStocks.length > 0;
-                const source = hasOwnStocks ? 'watchlist' : watchlist.length > 0 ? 'defaults-unsupported' : 'defaults-empty';
-                const usSymbols = hasOwnStocks ? usStocks : DEFAULT_DIGEST_SYMBOLS;
-                const symbols = [...usSymbols, ...indianStocks.map((w) => w.symbol)];
-
-                const [usNews, indianNews] = await Promise.all([
-                    usSymbols.length > 0 ? getNews(usSymbols) : Promise.resolve([]),
-                    getIndianStockNews(indianStocks),
-                ]);
-                const articles = [...(usNews ?? []), ...indianNews].sort((a, b) => b.datetime - a.datetime).slice(0, 10);
-                if (articles.length === 0) return { status: 'no-news', source, symbols };
-
-                const prompt = NEWS_SUMMARY_EMAIL_PROMPT
-                    .replace('{{newsData}}', JSON.stringify(articles, null, 2))
-                    .replace(/daily/g, 'weekly')
-                    .replace(/Daily/g, 'Weekly');
-
-                let newsContent: string;
-                let summary: string;
-                try {
-                    newsContent = await callAIProviderWithFallback(prompt);
-                    summary = 'ai';
-                } catch (error) {
-                    // Throwing makes Inngest retry this step with backoff; only the last attempt falls back
-                    if (attempt < AI_ATTEMPTS - 1) throw error;
-                    summary = `headlines (AI failed: ${error instanceof Error ? error.message : String(error)})`;
-                    newsContent = headlinesHtml(articles);
-                }
-
-                const nudge = source === 'defaults-empty' ? EMPTY_WATCHLIST_NOTE : source === 'defaults-unsupported' ? UNSUPPORTED_WATCHLIST_NOTE : '';
+        for (const plan of plans) {
+            const digest = summaries.get(plan.key)!;
+            const result = await step.run(`send-${plan.user.id}`, async () => {
+                if (!digest.newsContent) return { status: 'no-news', stocks: plan.key };
+                const note = plan.source === 'defaults-empty' ? EMPTY_WATCHLIST_NOTE : plan.source === 'defaults-unsupported' ? UNSUPPORTED_WATCHLIST_NOTE : '';
                 const { status } = await sendNewsSummaryEmail({
-                    email: user.email,
+                    email: plan.user.email,
                     date,
-                    newsContent: nudge + newsContent,
-                    unsubscribeUrl: digestUnsubscribeUrl(user.id),
+                    newsContent: note + digest.newsContent,
+                    unsubscribeUrl: digestUnsubscribeUrl(plan.user.id),
                 });
-                return { status, source, symbols, articles: { us: usNews?.length ?? 0, india: indianNews.length }, summary };
+                return { status, source: plan.source, stocks: plan.key, summary: digest.summary };
             });
             if (result.status === 'sent') sent++;
         }
 
-        return { success: true, sent, subscribers: users.length };
+        return { success: true, sent, subscribers: plans.length, summaries: summaries.size };
     }
 )
 
