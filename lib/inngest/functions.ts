@@ -32,7 +32,7 @@ export const sendSignUpEmail = inngest.createFunction(
                 return await callAIProviderChain(prompt);
             } catch (error) {
                 console.error("⚠️ All AI providers failed for welcome email", error);
-                return { text: 'Thanks for joining StockLens. You now have the tools to track markets and make smarter moves.', provider: 'fallback text' };
+                return { text: 'Thanks for joining StockLens. You now have the tools to track markets and make smarter moves.', provider: 'fallback text', skipped: [] };
             }
         });
         const introText = intro.text;
@@ -110,8 +110,9 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
         .replace(/Daily/g, 'Weekly');
 
     try {
-        const { text, provider } = await callAIProviderChain(prompt);
-        return { newsContent: text, summary: `ai (${provider})`, articles: counts };
+        const { text, provider, skipped } = await callAIProviderChain(prompt);
+        const summary = skipped.length > 0 ? `ai (${provider}) | skipped: ${skipped.join('; ')}` : `ai (${provider})`;
+        return { newsContent: text, summary, articles: counts };
     } catch (error) {
         // Throwing makes Inngest retry this step with backoff; the last attempt, or an error a
         // retry can't fix (like a used-up quota), falls back to the headline list

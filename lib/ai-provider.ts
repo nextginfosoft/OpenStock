@@ -54,8 +54,9 @@ export function getProviderConfig(
         name: "openrouter",
         apiKey: process.env.OPENROUTER_API_KEY || "",
         baseUrl: "https://openrouter.ai/api/v1",
-        // A free model by default; set OPENROUTER_MODEL for any other (e.g. a paid one)
-        model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+        // OpenRouter's free router picks whichever free model is available (individual free models
+        // are retired often); set OPENROUTER_MODEL to pin one, or to use a paid model
+        model: process.env.OPENROUTER_MODEL || "openrouter/free",
       };
 
     case "deepseek":
@@ -133,12 +134,17 @@ export class AIProviderError extends Error {
   }
 }
 
+// Some providers echo part of the key back ("Incorrect API key provided: sk-..."), and these
+// messages end up in job logs, so anything shaped like a key is masked
+const redactKeys = (text: string) =>
+  text.replace(/\b(sk-[\w-]{6,}|gsk_[\w-]{6,}|sk-or-[\w-]{6,}|AIza[\w-]{10,})/g, (key) => `${key.slice(0, 4)}…`);
+
 // The provider's own reason ("quota exceeded", "model not found"), not just the status code
 async function errorDetail(res: Response): Promise<string> {
   try {
     const body = await res.text();
     const message = (JSON.parse(body) as { error?: { message?: string } })?.error?.message;
-    return ` - ${(message ?? body).slice(0, 200)}`;
+    return ` - ${redactKeys((message ?? body).slice(0, 200))}`;
   } catch {
     return "";
   }
@@ -244,11 +250,12 @@ export async function callAIProviderWithFallback(
 }
 
 /**
- * Same as callAIProviderWithFallback, but also says which provider answered.
+ * Same as callAIProviderWithFallback, but also says which provider answered and why any
+ * providers before it failed (short reasons, safe to show in job logs).
  */
 export async function callAIProviderChain(
   prompt: string
-): Promise<{ text: string; provider: AIProviderName }> {
+): Promise<{ text: string; provider: AIProviderName; skipped: string[] }> {
   const chain = getProviderChain();
   if (chain.length === 0) {
     throw new AIProviderError("No AI provider is configured (set GEMINI_API_KEY, GROQ_API_KEY, ...)", undefined, false);
@@ -257,7 +264,9 @@ export async function callAIProviderChain(
   const failures: { name: AIProviderName; error: unknown }[] = [];
   for (const name of chain) {
     try {
-      return { text: await callAIProvider(prompt, name), provider: name };
+      const text = await callAIProvider(prompt, name);
+      const skipped = failures.map(({ name: failed, error }) => `${failed}: ${(error instanceof Error ? error.message : String(error)).slice(0, 120)}`);
+      return { text, provider: name, skipped };
     } catch (error) {
       failures.push({ name, error });
       if (name !== chain[chain.length - 1]) {

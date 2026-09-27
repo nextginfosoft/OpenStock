@@ -81,7 +81,7 @@ describe("getProviderConfig for Groq, OpenRouter, DeepSeek and OpenAI", () => {
 
   it.each([
     ["groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"],
-    ["openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free"],
+    ["openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1", "openrouter/free"],
     ["deepseek", "DEEPSEEK_API_KEY", "https://api.deepseek.com/v1", "deepseek-chat"],
     ["openai", "OPENAI_API_KEY", "https://api.openai.com/v1", "gpt-4o-mini"],
   ] as const)("%s reads %s and has sensible defaults", (name, keyVar, baseUrl, model) => {
@@ -329,8 +329,12 @@ describe("callAIProviderWithFallback", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await callAIProviderWithFallback("test")).toBe("DeepSeek answer");
     expect(calls).toEqual(["generativelanguage.googleapis.com", "api.groq.com", "api.deepseek.com"]);
-    // The chain variant also says which provider answered
-    expect(await callAIProviderChain("test")).toEqual({ text: "DeepSeek answer", provider: "deepseek" });
+    // The chain variant also says which provider answered and why the earlier ones failed
+    expect(await callAIProviderChain("test")).toEqual({
+      text: "DeepSeek answer",
+      provider: "deepseek",
+      skipped: ["gemini: Gemini API error: 429 Too Many Requests", "groq: groq API error: 429 Too Many Requests"],
+    });
     consoleSpy.mockRestore();
   });
 
@@ -360,6 +364,20 @@ describe("callAIProviderWithFallback", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(isRetryableAIError(await callAIProviderWithFallback("test").catch((e) => e))).toBe(true);
     consoleSpy.mockRestore();
+  });
+
+  it("masks API keys that a provider echoes back in its error", async () => {
+    process.env.OPENAI_API_KEY = "o";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      text: () => Promise.resolve(JSON.stringify({ error: { message: "Incorrect API key provided: sk-proj-abcdef123456XYZ." } })),
+    }));
+
+    const error = await callAIProviderWithFallback("test").catch((e) => e);
+    expect(error.message).toContain("Incorrect API key provided: sk-p…");
+    expect(error.message).not.toContain("abcdef123456");
   });
 
   it("fails clearly when no provider has a key", async () => {
