@@ -79,6 +79,20 @@ export function getFallbackProviderName(
 
 // ── Provider call implementations ──────────────────────────────────
 
+// A hung provider would otherwise hold a background job step open until the platform kills it
+const AI_TIMEOUT_MS = 30_000;
+
+// The provider's own reason ("quota exceeded", "model not found"), not just the status code
+async function errorDetail(res: Response): Promise<string> {
+  try {
+    const body = await res.text();
+    const message = (JSON.parse(body) as { error?: { message?: string } })?.error?.message;
+    return ` - ${(message ?? body).slice(0, 200)}`;
+  } catch {
+    return "";
+  }
+}
+
 async function callGemini(
   prompt: string,
   config: AIProviderConfig
@@ -93,10 +107,11 @@ async function callGemini(
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     }),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
-    throw new Error(`Gemini API error: ${res.status} ${res.statusText}`);
+    throw new Error(`Gemini API error: ${res.status} ${res.statusText}${await errorDetail(res)}`);
   }
 
   const data = await res.json();
@@ -128,11 +143,12 @@ async function callOpenAICompatible(
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
     }),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
     throw new Error(
-      `${config.name} API error: ${res.status} ${res.statusText}`
+      `${config.name} API error: ${res.status} ${res.statusText}${await errorDetail(res)}`
     );
   }
 
@@ -177,6 +193,8 @@ export async function callAIProviderWithFallback(
   try {
     return await callAIProvider(prompt, primaryName);
   } catch (primaryError) {
+    // No key for the fallback: its "key not set" error would hide the real reason the primary failed
+    if (!getProviderConfig(fallbackName).apiKey) throw primaryError;
     console.error(
       `⚠️ ${primaryName} failed, switching to ${fallbackName} fallback`,
       primaryError

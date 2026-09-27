@@ -347,6 +347,26 @@ describe("callAIProviderWithFallback", () => {
     consoleSpy.mockRestore();
   });
 
+  it("rethrows the primary error when the fallback has no key", async () => {
+    delete process.env.AI_PROVIDER;
+    process.env.GEMINI_API_KEY = "g";
+    delete process.env.MINIMAX_API_KEY;
+    delete process.env.SIRAY_API_KEY;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: "Too Many Requests",
+      text: () => Promise.resolve(JSON.stringify({ error: { message: "Quota exceeded for model" } })),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(callAIProviderWithFallback("test")).rejects.toThrow(
+      "Gemini API error: 429 Too Many Requests - Quota exceeded for model"
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when both primary and fallback fail", async () => {
     process.env.AI_PROVIDER = "minimax";
     process.env.MINIMAX_API_KEY = "k";
