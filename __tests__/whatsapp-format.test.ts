@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { digestHeadlines, maskPhone, normalizePhone, priceAlertParams, templateText, wrapLine } from '@/lib/whatsapp-format';
+import { digestStories, digestWeek, maskPhone, normalizePhone, priceAlertParams, templateText, wrapLine } from '@/lib/whatsapp-format';
 
 describe('WhatsApp phone numbers', () => {
     it('treats a bare 10-digit mobile number as Indian', () => {
@@ -58,13 +58,33 @@ describe('WhatsApp message text', () => {
         expect(wrapLine([{ symbol: 'X', price: 0, changePercent: 1 }])).toBeNull();
     });
 
-    it('puts up to three headlines on one line for the weekly digest', () => {
-        expect(digestHeadlines(['Nvidia beats\nestimates', 'Apple unveils a phone', 'Third', 'Fourth']))
-            .toBe('“Nvidia beats estimates” · “Apple unveils a phone” · “Third”');
-        const long = digestHeadlines(['x'.repeat(300)])!;
-        expect(long.length).toBeLessThanOrEqual(112);
-        expect(long.endsWith('…”')).toBe(true);
-        expect(digestHeadlines([])).toBeNull();
-        expect(digestHeadlines(['  ', ''])).toBeNull();
+    it('gives the weekly digest one story per stock first, labelled and cut at a word', () => {
+        const stories = digestStories([
+            { headline: 'Nvidia beats\nestimates', related: 'NVDA', source: 'Reuters' },
+            { headline: 'Nvidia opens a new lab', related: 'NVDA', source: 'CNBC' },
+            { headline: 'Reliance Jio adds users', related: 'RELIANCE.NS', source: 'Mint' },
+            { headline: 'Bitcoin tops 70k', related: 'BINANCE:BTCUSDT' },
+        ])!;
+        expect(stories).toEqual([
+            'NVDA: Nvidia beats estimates (Reuters)',
+            'RELIANCE: Reliance Jio adds users (Mint)',
+            'BTC: Bitcoin tops 70k',
+        ]);
+        const [long] = digestStories([{ headline: 'word '.repeat(60), related: 'AAPL' }])!;
+        expect(long.length).toBeLessThanOrEqual(146);
+        expect(long).toMatch(/word…$/);
+    });
+
+    it('fills the digest template slots when there are few stories, and skips when there are none', () => {
+        expect(digestStories([{ headline: 'Only one', related: 'AAPL' }])).toEqual([
+            'AAPL: Only one', 'More stories are on your StockLens watchlist', 'More stories are on your StockLens watchlist',
+        ]);
+        expect(digestStories([])).toBeNull();
+        expect(digestStories([{ headline: '  ' }])).toBeNull();
+    });
+
+    it('names the week a digest covers', () => {
+        expect(digestWeek(new Date('2026-09-28T03:30:00Z'))).toBe('22–28 Sep');
+        expect(digestWeek(new Date('2026-10-02T03:30:00Z'))).toBe('26 Sep – 2 Oct');
     });
 });

@@ -33,18 +33,46 @@ export function priceAlertParams({ symbol, currentPrice, targetPrice, condition 
     return [displaySymbol(symbol), money(symbol, currentPrice), condition === 'ABOVE' ? 'above' : 'below', money(symbol, targetPrice)].map(templateText);
 }
 
-const DIGEST_MAX_HEADLINES = 3;
-const DIGEST_HEADLINE_CHARS = 110;
+export const DIGEST_STORIES = 3;
+const DIGEST_HEADLINE_CHARS = 140;
 
-// The weekly digest on WhatsApp: the week's top headlines on one line, each cut to a readable length,
-// e.g. "“Nvidia beats estimates…” · “Apple unveils…”"
-export function digestHeadlines(headlines: string[]): string | null {
-    const picked = headlines
-        .map(templateText)
-        .filter(Boolean)
-        .slice(0, DIGEST_MAX_HEADLINES)
-        .map((h) => `“${h.length > DIGEST_HEADLINE_CHARS ? `${h.slice(0, DIGEST_HEADLINE_CHARS - 1).trimEnd()}…` : h}”`);
-    return picked.length > 0 ? picked.join(' · ') : null;
+// "RELIANCE.NS", "NSE:TCS", "BINANCE:BTCUSDT" -> "RELIANCE", "TCS", "BTC"
+const stockLabel = (symbol: string) => displaySymbol(symbol).replace(/^(NSE|BSE):/i, '').replace(/\.(NS|BO)$/i, '').toUpperCase();
+
+// Cut at a word boundary, never mid-word
+function shorten(text: string, max: number) {
+    if (text.length <= max) return text;
+    const cut = text.slice(0, max - 1);
+    const lastSpace = cut.lastIndexOf(' ');
+    return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:.–-]+$/, '')}…`;
+}
+
+// The weekly digest on WhatsApp: one line per story, "NVDA: Nvidia beats estimates (Reuters)".
+// Stories are newest first; each stock gets one before any stock gets a second. Always returns
+// DIGEST_STORIES lines (the template has that many slots), or null when there are no stories.
+export function digestStories(articles: { headline: string; related?: string; source?: string }[]): string[] | null {
+    const usable = articles.filter((a) => templateText(a.headline ?? ''));
+    const firstPerStock = usable.filter((a, i) => usable.findIndex((b) => (b.related ?? '') === (a.related ?? '')) === i);
+    const picked = [...firstPerStock, ...usable.filter((a) => !firstPerStock.includes(a))].slice(0, DIGEST_STORIES);
+    if (picked.length === 0) return null;
+
+    const lines = picked.map((a) => {
+        const label = a.related ? `${stockLabel(a.related)}: ` : '';
+        const source = a.source ? ` (${templateText(a.source)})` : '';
+        return templateText(`${label}${shorten(templateText(a.headline), DIGEST_HEADLINE_CHARS)}${source}`);
+    });
+    while (lines.length < DIGEST_STORIES) lines.push('More stories are on your StockLens watchlist');
+    return lines;
+}
+
+// "21–27 Sep": the seven days a Monday digest covers, ending on the given day
+export function digestWeek(end: Date, timeZone = 'Asia/Kolkata'): string {
+    const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const day = (d: Date) => new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric' }).format(d);
+    const month = (d: Date) => new Intl.DateTimeFormat('en-US', { timeZone, month: 'short' }).format(d);
+    return month(start) === month(end)
+        ? `${day(start)}–${day(end)} ${month(end)}`
+        : `${day(start)} ${month(start)} – ${day(end)} ${month(end)}`;
 }
 
 const WRAP_MAX_STOCKS = 10;

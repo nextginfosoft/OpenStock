@@ -11,7 +11,7 @@ import { callAIProviderChain, isRetryableAIError } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 import { hasFinnhubQuotes } from "@/lib/markets";
 import { sendWhatsAppDailyWrap, sendWhatsAppPriceAlert, sendWhatsAppWeeklyDigest, whatsappConfigured } from "@/lib/whatsapp";
-import { digestHeadlines, wrapLine } from "@/lib/whatsapp-format";
+import { digestStories, digestWeek, wrapLine } from "@/lib/whatsapp-format";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email', triggers: [{ event: 'app/user.created' }] },
@@ -104,9 +104,9 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
     ]);
     const articles = [...(usNews ?? []), ...indianNews].sort((a, b) => b.datetime - a.datetime).slice(0, 10);
     const counts = { us: usNews?.length ?? 0, india: indianNews.length };
-    if (articles.length === 0) return { newsContent: null, summary: 'no-news', articles: counts, headlines: [] as string[] };
-    // The WhatsApp digest carries the top headlines rather than the long AI summary
-    const headlines = articles.slice(0, 3).map((a) => a.headline);
+    if (articles.length === 0) return { newsContent: null, summary: 'no-news', articles: counts, stories: [] as Pick<MarketNewsArticle, 'headline' | 'related' | 'source'>[] };
+    // The WhatsApp digest carries a few headlines rather than the long AI summary
+    const stories = articles.map(({ headline, related, source }) => ({ headline, related, source }));
 
     const prompt = NEWS_SUMMARY_EMAIL_PROMPT
         .replace('{{newsData}}', JSON.stringify(articles, null, 2))
@@ -116,13 +116,13 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
     try {
         const { text, provider, skipped } = await callAIProviderChain(prompt);
         const summary = skipped.length > 0 ? `ai (${provider}) | skipped: ${skipped.join('; ')}` : `ai (${provider})`;
-        return { newsContent: text, summary, articles: counts, headlines };
+        return { newsContent: text, summary, articles: counts, stories };
     } catch (error) {
         // Throwing makes Inngest retry this step with backoff; the last attempt, or an error a
         // retry can't fix (like a used-up quota), falls back to the headline list
         if (isRetryableAIError(error) && attempt < AI_ATTEMPTS - 1) throw error;
         const reason = error instanceof Error ? error.message : String(error);
-        return { newsContent: headlinesHtml(articles), summary: `headlines (AI failed: ${reason})`, articles: counts, headlines };
+        return { newsContent: headlinesHtml(articles), summary: `headlines (AI failed: ${reason})`, articles: counts, stories };
     }
 }
 
@@ -180,10 +180,10 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
                 }
                 // Sent last and never thrown: a retry of this step would email the user again
                 let whatsapp = plan.whatsapp ? 'no-headlines' : 'not-subscribed';
-                const headlines = digestHeadlines(digest.headlines ?? []);
-                if (plan.whatsapp && headlines) {
+                const stories = digestStories(digest.stories ?? []);
+                if (plan.whatsapp && stories) {
                     try {
-                        whatsapp = (await sendWhatsAppWeeklyDigest(plan.whatsapp, date, headlines)).status;
+                        whatsapp = (await sendWhatsAppWeeklyDigest(plan.whatsapp, digestWeek(new Date()), stories)).status;
                     } catch (error) {
                         whatsapp = `failed: ${error instanceof Error ? error.message : String(error)}`;
                     }

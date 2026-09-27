@@ -58,6 +58,8 @@ describe('Indian stock news from Google News RSS', () => {
         expect(mentionsCompany('HDFC Bank shares hit 52-week low', 'HDFC Bank Ltd', 'BSE:HDFCBANK')).toBe(true);
         // Mentioned only in the article body, or a generic first word
         expect(mentionsCompany('Microsoft shares jump 4% after Copilot overhaul', 'Reliance Industries Ltd', 'RELIANCE.NS')).toBe(false);
+        expect(mentionsCompany('Land victory is the only tangible factor in war: Army chief; says no substitute for self-reliance in weapons', 'Reliance Industries Ltd', 'RELIANCE.NS')).toBe(false);
+        expect(mentionsCompany('India cuts its heavy reliance on imported oil', 'Reliance Industries Ltd', 'RELIANCE.NS')).toBe(false);
         expect(mentionsCompany('State pension rules change', 'State Bank of India', 'SBIN.NS')).toBe(false);
         expect(mentionsCompany('SBIN hits record high', 'State Bank of India', 'SBIN.NS')).toBe(true);
     });

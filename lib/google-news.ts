@@ -24,9 +24,21 @@ export const mentionsCompany = (headline: string, company: string, symbol: strin
     const firstWord = name.split(/\s+/)[0] ?? '';
     const ticker = tickerOf(symbol).toLowerCase();
     return text.includes(name)
-        || new RegExp(`\\b${ticker.replace(/[^a-z0-9]/g, '')}\\b`).test(text)
-        || (firstWord.length >= 3 && !GENERIC_WORDS.has(firstWord) && new RegExp(`\\b${firstWord.replace(/[^a-z0-9]/g, '')}\\b`).test(text));
+        // One-word matches must look like a name: capitalised ("Reliance", not "heavy reliance on")
+        || namesWord(headline, ticker, true)
+        || (firstWord.length >= 3 && !GENERIC_WORDS.has(firstWord) && namesWord(headline, firstWord, true));
 };
+
+// The word on its own, not the tail of a hyphenated word: "self-reliance" doesn't name Reliance,
+// but "Reliance-Disney" does
+function namesWord(headline: string, word: string, capitalised = false) {
+    const clean = word.replace(/[^a-z0-9]/gi, '');
+    if (!clean) return false;
+    for (const match of headline.matchAll(new RegExp(`(?<![\\w-])${clean}(?!\\w)`, 'gi'))) {
+        if (!capitalised || /[A-Z0-9]/.test(match[0][0])) return true;
+    }
+    return false;
+}
 
 const decode = (text: string) =>
     text
