@@ -51,5 +51,8 @@ Based on OpenStock at upstream commit `87df76a`.
 - Welcome email now queued for every new account (email or Google/GitHub sign-in).
 - Share preview image, Cloudflare Web Analytics (replacing Vercel Analytics), and public
   favicon/share-image routes.
+- Indian (NSE/BSE) stock news via Google News RSS; a backup chain of AI providers.
+- WhatsApp alerts: number verification on the profile page, price alerts and a weekday
+  morning wrap-up via the WhatsApp Cloud API; price alerts can run without realtime mode.
 
 The Terms of Service page (`app/(marketing)/terms`) and `LICENSE` are unchanged.

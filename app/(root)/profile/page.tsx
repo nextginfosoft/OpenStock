@@ -4,6 +4,8 @@ import { Bell, KeyRound, ShieldCheck, Star } from "lucide-react";
 import Panel from "@/components/Panel";
 import ProfileForm from "@/components/profile/ProfileForm";
 import PasswordForm from "@/components/profile/PasswordForm";
+import WhatsAppAlerts from "@/components/profile/WhatsAppAlerts";
+import { getWhatsAppStatus } from "@/lib/actions/whatsapp.actions";
 import { auth, getSession } from "@/lib/better-auth/auth";
 import { getUserWatchlist } from "@/lib/actions/watchlist.actions";
 import { getUserAlerts } from "@/lib/actions/alert.actions";
@@ -22,10 +24,11 @@ export default async function ProfilePage() {
     if (!session?.user) redirect('/sign-in');
     const { user } = session;
 
-    const [accounts, watchlist, alerts] = await Promise.all([
+    const [accounts, watchlist, alerts, whatsapp] = await Promise.all([
         auth.api.listUserAccounts({ headers: await headers() }).catch(() => []),
         getUserWatchlist(),
         getUserAlerts(),
+        getWhatsAppStatus(),
     ]);
     const linked = new Set(accounts.map((a: { providerId: string }) => a.providerId));
     const activeAlerts = alerts.filter((a: { triggered?: boolean }) => !a.triggered).length;
@@ -83,6 +86,10 @@ export default async function ProfilePage() {
                                 </li>
                             ))}
                         </ul>
+                    </Panel>
+
+                    <Panel title="WhatsApp alerts" sub="Price alerts and a morning wrap-up of your watchlist">
+                        <WhatsAppAlerts initial={whatsapp} />
                     </Panel>
 
                     {linked.has('credential') && (

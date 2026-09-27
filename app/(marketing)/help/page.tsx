@@ -29,7 +29,11 @@ const FAQS = [
     },
     {
         question: 'My alert hasn’t fired.',
-        answer: 'Price alerts only run when realtime mode is on, which this site does not use yet. Where they are on, they are checked every five minutes and emailed to your account address when the price crosses your target. Check the alert’s status on the watchlist page.',
+        answer: 'Alerts are checked every five minutes against live prices for US stocks and crypto, and sent to your account email (and WhatsApp, if you’ve connected it) when the price crosses your target. Each alert fires once. Check its status on the watchlist page.',
+    },
+    {
+        question: 'How do WhatsApp alerts work?',
+        answer: 'Connect your number on your profile page and confirm it with the code we send on WhatsApp. You can then get price alerts and a morning wrap-up of your watchlist’s US stocks and crypto. Turn either off, or remove your number, on your profile page at any time; replies in the WhatsApp chat aren’t read by StockLens.',
     },
 ];
 

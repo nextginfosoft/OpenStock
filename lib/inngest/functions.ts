@@ -10,6 +10,8 @@ import { createHash } from "node:crypto";
 import { callAIProviderChain, isRetryableAIError } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 import { hasFinnhubQuotes } from "@/lib/markets";
+import { sendWhatsAppDailyWrap, sendWhatsAppPriceAlert, whatsappConfigured } from "@/lib/whatsapp";
+import { wrapLine } from "@/lib/whatsapp-format";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email', triggers: [{ event: 'app/user.created' }] },
@@ -291,18 +293,34 @@ export const checkStockAlerts = inngest.createFunction(
                                 : { id: alert.userId }
                         );
 
+                        const details = { symbol: alert.symbol, currentPrice, targetPrice: alert.targetPrice, condition: alert.condition };
+                        let delivered = false;
+
                         if (user?.email) {
-                            const result = await sendStockAlertEmail({
-                                email: user.email,
-                                symbol: alert.symbol,
-                                currentPrice,
-                                targetPrice: alert.targetPrice,
-                                condition: alert.condition,
-                            });
-                            // Email not configured: release so the alert fires once email works
-                            if (result.status === 'skipped') await release();
-                        } else {
-                            console.warn(`⚠️ No email for user ${alert.userId}; closing alert ${alert._id} without notifying`);
+                            const result = await sendStockAlertEmail({ email: user.email, ...details });
+                            delivered = result.status === 'sent';
+                        }
+
+                        // WhatsApp too, for users who connected a number and kept price alerts on.
+                        // Its own try: a WhatsApp failure must not undo an email that already went out.
+                        const whatsapp = await db.collection('whatsapp_alerts').findOne<{ number?: string }>(
+                            { userId: String(alert.userId), verified: true, priceAlerts: { $ne: false } }
+                        );
+                        if (whatsapp?.number) {
+                            try {
+                                const result = await sendWhatsAppPriceAlert(whatsapp.number, details);
+                                delivered = delivered || result.status === 'sent';
+                            } catch (error) {
+                                console.error(`❌ WhatsApp alert failed for ${alert._id} (${alert.symbol})`, error);
+                            }
+                        }
+
+                        if (!delivered && (user?.email || whatsapp?.number)) {
+                            // Nothing went out (email and WhatsApp not configured, or both failed): release
+                            // so the alert fires once a channel works
+                            await release();
+                        } else if (!user?.email && !whatsapp?.number) {
+                            console.warn(`⚠️ No email or WhatsApp for user ${alert.userId}; closing alert ${alert._id} without notifying`);
                         }
                     } catch (error) {
                         await release();
@@ -316,6 +334,63 @@ export const checkStockAlerts = inngest.createFunction(
             processed: activeAlerts.length,
             triggered: triggeredAlerts.length
         };
+    }
+);
+
+// Weekday mornings at 8:30 IST, after each US session: a WhatsApp wrap-up of the US stocks and crypto
+// on each subscriber's watchlist (Indian stocks have no quote source yet). Each symbol is quoted
+// once however many people watch it, and each message is its own step, so a failed send is retried
+// on its own and never repeats the others.
+export const whatsappDailyWrap = inngest.createFunction(
+    { id: 'whatsapp-daily-wrap', triggers: [{ event: 'app/whatsapp.daily-wrap' }, { cron: 'TZ=Asia/Kolkata 30 8 * * 2-6' }] },
+    async ({ step }) => {
+        if (!whatsappConfigured()) return { message: 'WhatsApp is not configured.' };
+
+        const subscribers = await step.run('get-subscribers', async () => {
+            const { connectToDatabase } = await import("@/database/mongoose");
+            const { Watchlist } = await import("@/database/models/watchlist.model");
+            const mongoose = await connectToDatabase();
+            const db = mongoose.connection.db;
+            if (!db) throw new Error("No DB Connection");
+
+            const docs = await db.collection('whatsapp_alerts')
+                .find({ verified: true, dailyWrap: { $ne: false }, number: { $exists: true } }, { projection: { userId: 1, number: 1 } })
+                .toArray();
+            return Promise.all(docs.map(async (doc) => ({
+                userId: String(doc.userId),
+                number: String(doc.number),
+                symbols: (await Watchlist.find({ userId: doc.userId }, { symbol: 1 }).lean()).map((w) => String(w.symbol)).filter(hasFinnhubQuotes),
+            })));
+        });
+        const withStocks = subscribers.filter((s) => s.symbols.length > 0);
+        if (withStocks.length === 0) return { message: 'No subscribers with US stocks or crypto on their watchlist.' };
+
+        const quotes = await step.run('fetch-quotes', async () => {
+            const { getQuote } = await import("@/lib/actions/finnhub.actions");
+            const bySymbol: Record<string, { price: number; changePercent: number }> = {};
+            for (const symbol of [...new Set(withStocks.flatMap((s) => s.symbols))]) {
+                // A short cache is fine: the session closed hours ago
+                const quote = await getQuote(symbol, 900);
+                if (quote?.c && typeof quote.dp === 'number') bySymbol[symbol] = { price: quote.c, changePercent: quote.dp };
+            }
+            return bySymbol;
+        });
+
+        // The US session this wrap-up covers: at 8:30 IST it is still the previous day in New York
+        const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' }).format(new Date());
+
+        let sent = 0;
+        for (const subscriber of withStocks) {
+            const result = await step.run(`wrap-${subscriber.userId}`, async () => {
+                const line = wrapLine(subscriber.symbols.filter((s) => quotes[s]).map((s) => ({ symbol: s, ...quotes[s] })));
+                if (!line) return { status: 'no-quotes' };
+                const { status } = await sendWhatsAppDailyWrap(subscriber.number, date, line);
+                return { status, stocks: subscriber.symbols.length };
+            });
+            if (result.status === 'sent') sent++;
+        }
+
+        return { success: true, sent, subscribers: withStocks.length };
     }
 );
 

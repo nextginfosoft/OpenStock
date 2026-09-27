@@ -60,6 +60,10 @@ const optionalVars = {
     'OPENROUTER_API_KEY': 'OpenRouter API key (backup AI provider; free models by default)',
     'DEEPSEEK_API_KEY': 'DeepSeek API key (paid backup AI provider)',
     'OPENAI_API_KEY': 'OpenAI API key (paid backup AI provider)',
+    'NEXT_PUBLIC_PRICE_ALERTS': '"on" to check price alerts every 5 minutes while on-screen prices stay hourly',
+    'WHATSAPP_ACCESS_TOKEN': 'WhatsApp Cloud API permanent access token (System User) for WhatsApp alerts',
+    'WHATSAPP_PHONE_NUMBER_ID': 'WhatsApp Cloud API phone number ID that sends the alerts',
+    'WHATSAPP_TEMPLATE_LANGUAGE': 'Language code of the approved WhatsApp templates (default "en")',
 
     // Kit (ConvertKit) for email broadcasts
     'KIT_API_KEY': 'ConvertKit API key (for news summary broadcasts)',

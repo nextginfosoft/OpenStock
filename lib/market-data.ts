@@ -10,5 +10,6 @@ export const QUOTE_TTL_SECONDS = DATA_MODE === 'realtime' ? 15 : 3600;
 
 export const isRealtime = DATA_MODE === 'realtime';
 
-// Email price alerts need live quotes: on in realtime mode, off on the free hourly site.
-export const alertsEnabled = isRealtime;
+// Price alerts (email and WhatsApp) are checked every 5 minutes against fresh quotes. They are on in
+// realtime mode, or on their own with NEXT_PUBLIC_PRICE_ALERTS=on while on-screen prices stay hourly.
+export const alertsEnabled = isRealtime || process.env.NEXT_PUBLIC_PRICE_ALERTS === 'on';

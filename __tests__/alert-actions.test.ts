@@ -52,10 +52,10 @@ describe('alert actions are scoped to the session user', () => {
         expect(create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-123', symbol: 'AAPL' }));
     });
 
-    it('refuses new alerts where realtime mode is off', async () => {
+    it('refuses new alerts where alerts are turned off', async () => {
         flags.alertsEnabled = false;
         try {
-            await expect(createAlert({ symbol: 'AAPL', targetPrice: 200, condition: 'ABOVE' })).rejects.toThrow('realtime mode');
+            await expect(createAlert({ symbol: 'AAPL', targetPrice: 200, condition: 'ABOVE' })).rejects.toThrow('turned off');
             expect(create).not.toHaveBeenCalled();
         } finally {
             flags.alertsEnabled = true;
