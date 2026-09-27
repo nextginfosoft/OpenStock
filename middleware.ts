@@ -18,7 +18,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+    // Metadata files (favicon, share images) must stay public: browsers and link-preview crawlers have no session
     matcher: [
-        '/((?!api|_next/static|_next/image|favicon.ico|sign-in|sign-up|forgot-password|reset-password|assets).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico|icon.svg|opengraph-image|twitter-image|robots.txt|sitemap.xml|sign-in|sign-up|forgot-password|reset-password|assets).*)',
     ],
 };
