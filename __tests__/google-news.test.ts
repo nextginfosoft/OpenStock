@@ -61,4 +61,11 @@ describe('Indian stock news from Google News RSS', () => {
         expect(mentionsCompany('State pension rules change', 'State Bank of India', 'SBIN.NS')).toBe(false);
         expect(mentionsCompany('SBIN hits record high', 'State Bank of India', 'SBIN.NS')).toBe(true);
     });
+
+    it('matches on the ticker when the watchlist stored the symbol as the company name', () => {
+        expect(mentionsCompany('Cupid shares surge 10% on export order', 'CUPID.NS', 'CUPID.NS')).toBe(true);
+        expect(mentionsCompany('Reliance Industries rallies Friday', 'RELIANCE.NS', 'RELIANCE.NS')).toBe(true);
+        expect(mentionsCompany('Cupid-themed Valentine sales jump', 'CUPID.NS', 'CUPID.NS')).toBe(true); // ticker match is best effort
+        expect(mentionsCompany('Nifty ends flat', 'CUPID.NS', 'CUPID.NS')).toBe(false);
+    });
 });

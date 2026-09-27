@@ -63,7 +63,9 @@ export function parseGoogleNewsRss(xml: string, symbol: string): MarketNewsArtic
 }
 
 // Search term from the company name the watchlist stored, e.g. "Reliance Industries Ltd" -> "Reliance Industries"
+// Stocks added from their stock page are saved with the symbol as the company ("CUPID.NS"), so fall back to the ticker
 function searchName(company: string, symbol: string) {
+    if (!company.trim() || company.trim().toUpperCase() === symbol.toUpperCase()) return tickerOf(symbol);
     const name = company.replace(/\b(ltd|limited|pvt|private|inc|corp|corporation)\.?$/gi, '').replace(/[.,]+$/, '').trim();
     return name || tickerOf(symbol);
 }
