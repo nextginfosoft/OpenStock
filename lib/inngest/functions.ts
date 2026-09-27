@@ -7,6 +7,7 @@ import { getNews } from "@/lib/actions/finnhub.actions";
 import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
 import { callAIProviderWithFallback } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
+import { hasFinnhubQuotes } from "@/lib/markets";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email', triggers: [{ event: 'app/user.created' }] },
@@ -58,12 +59,15 @@ export const sendSignUpEmail = inngest.createFunction(
     }
 )
 
+// AI attempts before an email goes out with the plain headline list instead of a summary
+const AI_ATTEMPTS = 3;
+
 // Every Monday 9:00 IST: one email per subscribed user, summarising the news for their own
-// watchlist (general market news when the watchlist is empty). Each user is its own step, so one
-// failed send is retried on its own and never blocks or repeats the others.
+// watchlist. Each user is its own step, so one failed send is retried on its own and never blocks
+// or repeats the others. Each step returns what it did, so the Inngest run shows it per user.
 export const sendWeeklyNewsSummary = inngest.createFunction(
     { id: 'weekly-news-summary', triggers: [{ event: 'app/send.weekly.news' }, { cron: 'TZ=Asia/Kolkata 0 9 * * 1' }] },
-    async ({ step }) => {
+    async ({ step, attempt }) => {
         const users = await step.run('get-subscribers', () => getAllUsersForNewsEmail());
         if (users.length === 0) return { message: 'No subscribed users.' };
 
@@ -72,12 +76,16 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
 
         for (const user of users) {
             const result = await step.run(`digest-${user.id}`, async () => {
-                // An empty watchlist gets news for well-known companies, not Finnhub's general feed,
-                // which mixes in world news with no market angle
+                // Free Finnhub only has company news for US listings; anything else (NSE/BSE, crypto...)
+                // would drop to the general feed, which is world news with no market angle.
+                // Without usable symbols the digest covers well-known companies instead.
                 const watchlist = await getWatchlistSymbolsByEmail(user.email);
-                const usingDefaults = watchlist.length === 0;
-                const articles = await getNews(usingDefaults ? DEFAULT_DIGEST_SYMBOLS : watchlist);
-                if (!articles || articles.length === 0) return 'no-news';
+                const newsSymbols = watchlist.filter((s) => hasFinnhubQuotes(s) && !s.toUpperCase().startsWith('BINANCE:'));
+                const source = newsSymbols.length > 0 ? 'watchlist' : watchlist.length > 0 ? 'defaults-unsupported' : 'defaults-empty';
+                const symbols = newsSymbols.length > 0 ? newsSymbols : DEFAULT_DIGEST_SYMBOLS;
+
+                const articles = await getNews(symbols);
+                if (!articles || articles.length === 0) return { status: 'no-news', source, symbols };
 
                 const prompt = NEWS_SUMMARY_EMAIL_PROMPT
                     .replace('{{newsData}}', JSON.stringify(articles, null, 2))
@@ -85,22 +93,27 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
                     .replace(/Daily/g, 'Weekly');
 
                 let newsContent: string;
+                let summary: string;
                 try {
                     newsContent = await callAIProviderWithFallback(prompt);
+                    summary = 'ai';
                 } catch (error) {
-                    console.error(`⚠️ AI summary failed for ${user.email}, sending headlines instead`, error);
+                    // Throwing makes Inngest retry this step with backoff; only the last attempt falls back
+                    if (attempt < AI_ATTEMPTS - 1) throw error;
+                    summary = `headlines (AI failed: ${error instanceof Error ? error.message : String(error)})`;
                     newsContent = headlinesHtml(articles);
                 }
 
+                const nudge = source === 'defaults-empty' ? EMPTY_WATCHLIST_NOTE : source === 'defaults-unsupported' ? UNSUPPORTED_WATCHLIST_NOTE : '';
                 const { status } = await sendNewsSummaryEmail({
                     email: user.email,
                     date,
-                    newsContent: usingDefaults ? WATCHLIST_NUDGE_HTML + newsContent : newsContent,
+                    newsContent: nudge + newsContent,
                     unsubscribeUrl: digestUnsubscribeUrl(user.id),
                 });
-                return status;
+                return { status, source, symbols, summary };
             });
-            if (result === 'sent') sent++;
+            if (result.status === 'sent') sent++;
         }
 
         return { success: true, sent, subscribers: users.length };
@@ -109,11 +122,19 @@ export const sendWeeklyNewsSummary = inngest.createFunction(
 
 const DEFAULT_DIGEST_SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL'];
 
-const WATCHLIST_NUDGE_HTML =
+const digestNote = (text: string) =>
     `<div style="background-color: #212328; padding: 18px 20px; margin: 0 0 28px 0; border-radius: 8px; border-left: 3px solid #5fd9c4;">` +
-    `<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #CCDADC;">Your watchlist is empty, so this week's digest covers some of the biggest companies. ` +
+    `<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #CCDADC;">${text}</p></div>`;
+
+const EMPTY_WATCHLIST_NOTE = digestNote(
+    `Your watchlist is empty, so this week's digest covers some of the biggest companies. ` +
     `<a href="${SITE_URL}/watchlist" style="color: #5fd9c4; font-weight: 600; text-decoration: none;">Add stocks to your watchlist &rarr;</a> ` +
-    `to get news about the companies you follow.</p></div>`;
+    `to get news about the companies you follow.`);
+
+const UNSUPPORTED_WATCHLIST_NOTE = digestNote(
+    `Weekly news is available for US-listed stocks for now, so this digest covers some of the biggest companies. ` +
+    `Your watchlist still tracks every stock you've added: ` +
+    `<a href="${SITE_URL}/watchlist" style="color: #5fd9c4; font-weight: 600; text-decoration: none;">open your watchlist &rarr;</a>`);
 
 // Plain list of headlines, used when no AI provider is available
 function headlinesHtml(articles: MarketNewsArticle[]) {
