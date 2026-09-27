@@ -4,6 +4,7 @@ import {
   getProviderChain,
   callAIProvider,
   callAIProviderWithFallback,
+  callAIProviderChain,
   isRetryableAIError,
   type AIProviderName,
 } from "@/lib/ai-provider";
@@ -328,6 +329,8 @@ describe("callAIProviderWithFallback", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await callAIProviderWithFallback("test")).toBe("DeepSeek answer");
     expect(calls).toEqual(["generativelanguage.googleapis.com", "api.groq.com", "api.deepseek.com"]);
+    // The chain variant also says which provider answered
+    expect(await callAIProviderChain("test")).toEqual({ text: "DeepSeek answer", provider: "deepseek" });
     consoleSpy.mockRestore();
   });
 

@@ -240,6 +240,15 @@ export async function callAIProvider(
 export async function callAIProviderWithFallback(
   prompt: string
 ): Promise<string> {
+  return (await callAIProviderChain(prompt)).text;
+}
+
+/**
+ * Same as callAIProviderWithFallback, but also says which provider answered.
+ */
+export async function callAIProviderChain(
+  prompt: string
+): Promise<{ text: string; provider: AIProviderName }> {
   const chain = getProviderChain();
   if (chain.length === 0) {
     throw new AIProviderError("No AI provider is configured (set GEMINI_API_KEY, GROQ_API_KEY, ...)", undefined, false);
@@ -248,7 +257,7 @@ export async function callAIProviderWithFallback(
   const failures: { name: AIProviderName; error: unknown }[] = [];
   for (const name of chain) {
     try {
-      return await callAIProvider(prompt, name);
+      return { text: await callAIProvider(prompt, name), provider: name };
     } catch (error) {
       failures.push({ name, error });
       if (name !== chain[chain.length - 1]) {

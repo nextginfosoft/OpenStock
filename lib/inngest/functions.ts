@@ -7,7 +7,7 @@ import { getIndianStockNews, isIndianSymbol } from "@/lib/google-news";
 import { getNews } from "@/lib/actions/finnhub.actions";
 import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
 import { createHash } from "node:crypto";
-import { callAIProviderWithFallback, isRetryableAIError } from "@/lib/ai-provider";
+import { callAIProviderChain, isRetryableAIError } from "@/lib/ai-provider";
 import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 import { hasFinnhubQuotes } from "@/lib/markets";
 
@@ -26,14 +26,16 @@ export const sendSignUpEmail = inngest.createFunction(
         const prompt = PERSONALIZED_WELCOME_EMAIL_PROMPT.replace('{{userProfile}}', userProfile)
 
 
-        const introText = await step.run('generate-welcome-intro', async () => {
+        // Returns which provider wrote the intro, so the Inngest run shows it
+        const intro = await step.run('generate-welcome-intro', async () => {
             try {
-                return await callAIProviderWithFallback(prompt);
+                return await callAIProviderChain(prompt);
             } catch (error) {
                 console.error("⚠️ All AI providers failed for welcome email", error);
-                return 'Thanks for joining StockLens. You now have the tools to track markets and make smarter moves.';
+                return { text: 'Thanks for joining StockLens. You now have the tools to track markets and make smarter moves.', provider: 'fallback text' };
             }
         });
+        const introText = intro.text;
 
         const emailResult = await step.run('send-welcome-email', async () => {
             try {
@@ -108,7 +110,8 @@ async function buildDigestSummary(plan: DigestPlan, attempt: number) {
         .replace(/Daily/g, 'Weekly');
 
     try {
-        return { newsContent: await callAIProviderWithFallback(prompt), summary: 'ai', articles: counts };
+        const { text, provider } = await callAIProviderChain(prompt);
+        return { newsContent: text, summary: `ai (${provider})`, articles: counts };
     } catch (error) {
         // Throwing makes Inngest retry this step with backoff; the last attempt, or an error a
         // retry can't fix (like a used-up quota), falls back to the headline list
