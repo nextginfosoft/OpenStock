@@ -48,9 +48,16 @@ export const sendWelcomeEmail = async ({ email, name, intro }: WelcomeEmailData)
             return { status: 'skipped' } satisfies EmailSendResult;
         }
 
+        // The AI intro arrives as a styled <p>; the plain fallback needs the same styling,
+        // or it inherits the email's dark text colour and disappears on the black background.
+        const introHtml = intro.trim().startsWith('<')
+            ? intro
+            : `<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">${escapeHtml(intro)}</p>`;
+
+        // Callback replacements, so "$" in a name or intro isn't read as a replacement pattern
         const htmlTemplate = WELCOME_EMAIL_TEMPLATE
-            .replace('{{name}}', name)
-            .replace('{{intro}}', intro);
+            .replace('{{name}}', () => escapeHtml(name))
+            .replace('{{intro}}', () => introHtml);
 
         const mailOptions = {
             from: `"StockLens" <${process.env.NODEMAILER_EMAIL}>`,

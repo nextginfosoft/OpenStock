@@ -39,4 +39,12 @@ Based on OpenStock at upstream commit `87df76a`.
   self-host section of the landing page. The site keeps the "Built on OpenStock by
   Open Dev Society" credit and a "Source code" link in the footer and app sidebar.
 
+## Changes made (2026-09-27)
+
+- Welcome email: styled the plain-text intro so it is readable, HTML-escaped the user's name,
+  and replaced the OpenStock dashboard screenshot with a StockLens one.
+- Background jobs: only the welcome email is registered with Inngest; the weekly digest runs only
+  when Kit is configured, and the unfinished inactive-user job is disabled.
+- Dependencies updated to clear all npm audit findings.
+
 The Terms of Service page (`app/(marketing)/terms`) and `LICENSE` are unchanged.
