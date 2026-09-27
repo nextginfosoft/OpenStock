@@ -371,7 +371,6 @@ export const checkInactiveUsers = inngest.createFunction(
 
         // Step 2: Send Emails
         const results = await step.run('send-reengagement-emails', async () => {
-            const { kit } = await import("@/lib/kit");
             const { connectToDatabase } = await import("@/database/mongoose");
             const mongoose = await connectToDatabase();
             const db = mongoose.connection.db;
@@ -475,13 +474,8 @@ export const checkInactiveUsers = inngest.createFunction(
                     // 1. Add tag "Inactive" to user.
                     // 2. (This is too slow for loop).
 
-                    // CHECK: Is this the test user?
-                    if (user.email === '11aravipratapsingh@gmail.com') {
-                        console.log(`🚀 Sending REAL Re-engagement Email to TEST USER: ${user.email}`);
-                        await kit.sendBroadcast(subject, content);
-                    } else {
-                        console.log(`[Re-engagement Mock] Would send to ${user.email}`);
-                    }
+                    // Not wired to a sender yet: a Kit broadcast would reach every subscriber, not just this user
+                    console.log(`[Re-engagement Mock] Would send "${subject}" to ${user.email} (${content.length} chars)`);
 
                     // Update DB to avoid loop
                     if (db) {
