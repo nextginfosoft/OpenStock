@@ -1,4 +1,4 @@
-import { BarChart2, Clock, Mail, UserX } from 'lucide-react';
+import { BarChart2, Clock, Mail } from 'lucide-react';
 import PageHero from '@/components/marketing/PageHero';
 import SectionHead from '@/components/marketing/SectionHead';
 import IconCard from '@/components/marketing/IconCard';
@@ -25,9 +25,8 @@ const FLOW = ['A user signs up, or a cron fires', 'Inngest runs the function', '
 
 const JOBS = [
     { icon: Mail, title: 'Welcome email', trigger: 'On sign-up', body: 'An AI-written intro tailored to the country, goal, risk and industry picked at sign-up.' },
-    { icon: BarChart2, title: 'Weekly news', trigger: 'Mon 09:00', body: 'Summarises the week’s market news and sends it as a Kit broadcast.' },
+    { icon: BarChart2, title: 'Weekly digest', trigger: 'Mon 09:00 IST', body: 'An AI summary of the week’s news for each user’s own watchlist, sent to every subscriber, with a one-click unsubscribe.' },
     { icon: Clock, title: 'Price alerts', trigger: 'Every 5 min', body: 'Checks every active alert against Finnhub quotes and emails the owner when one fires. Realtime mode only.' },
-    { icon: UserX, title: 'Re-engagement', trigger: 'Daily 10:00', body: 'Finds dormant accounts and sends a gentle nudge.' },
 ];
 
 const STACK = [
@@ -36,7 +35,6 @@ const STACK = [
     ['Inngest', 'Background jobs and schedules, with retries.', 'https://www.inngest.com'],
     ['Better Auth', 'Email, Google and GitHub sign-in with MongoDB sessions.', 'https://www.better-auth.com'],
     ['MongoDB Atlas', 'Users, watchlists and alerts.', 'https://www.mongodb.com/atlas'],
-    ['Kit', 'Newsletter broadcasts for the weekly digest.', 'https://kit.com'],
 ];
 
 export default function ArchitecturePage() {

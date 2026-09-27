@@ -5,6 +5,7 @@ import {nextCookies} from "better-auth/next-js";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { sendPasswordResetEmail } from "@/lib/nodemailer/reset-password";
+import { inngest } from "@/lib/inngest/client";
 
 
 type MongoDb = Parameters<typeof mongodbAdapter>[0];
@@ -38,6 +39,32 @@ const createAuth = (database: MongoDb) => betterAuth({
                 }).catch((error) => {
                     console.error('Failed to queue password reset email:', error);
                 });
+            },
+        },
+        // Welcome email for every new account, whether it signed up by email or with Google/GitHub
+        databaseHooks: {
+            user: {
+                create: {
+                    after: async (user) => {
+                        const profile = user as typeof user & Partial<Record<'country' | 'investmentGoals' | 'riskTolerance' | 'preferredIndustry', string>>;
+                        try {
+                            await inngest.send({
+                                name: 'app/user.created',
+                                data: {
+                                    email: profile.email,
+                                    name: profile.name,
+                                    country: profile.country,
+                                    investmentGoals: profile.investmentGoals,
+                                    riskTolerance: profile.riskTolerance,
+                                    preferredIndustry: profile.preferredIndustry,
+                                },
+                            });
+                        } catch (error) {
+                            // Never fail a sign-up because the welcome email couldn't be queued
+                            console.error('Failed to queue welcome email:', error);
+                        }
+                    },
+                },
             },
         },
         // Signed session cookie for 5 min: pages stop paying a MongoDB round trip per request.

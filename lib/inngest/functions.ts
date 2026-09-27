@@ -4,17 +4,20 @@ import { NEWS_SUMMARY_EMAIL_PROMPT, PERSONALIZED_WELCOME_EMAIL_PROMPT } from "@/
 import { sendNewsSummaryEmail, sendStockAlertEmail, sendWelcomeEmail } from "@/lib/nodemailer";
 import { getAllUsersForNewsEmail, getWatchlistSymbolsByEmail } from "@/lib/actions/user.actions";
 import { getNews } from "@/lib/actions/finnhub.actions";
-import { getFormattedTodayDate } from "@/lib/utils";
+import { escapeHtml, getFormattedTodayDate } from "@/lib/utils";
 import { callAIProviderWithFallback } from "@/lib/ai-provider";
+import { digestUnsubscribeUrl } from "@/lib/digest-unsubscribe";
 
 export const sendSignUpEmail = inngest.createFunction(
     { id: 'sign-up-email', triggers: [{ event: 'app/user.created' }] },
     async ({ event, step }) => {
+        // Google/GitHub sign-ups skip the onboarding questions, so fields can be missing
+        const field = (value?: string) => value || 'Not provided';
         const userProfile = `
-            - Country: ${event.data.country}
-            - Investment goals: ${event.data.investmentGoals}
-            - Risk tolerance: ${event.data.riskTolerance}
-            - Preferred industry: ${event.data.preferredIndustry}
+            - Country: ${field(event.data.country)}
+            - Investment goals: ${field(event.data.investmentGoals)}
+            - Risk tolerance: ${field(event.data.riskTolerance)}
+            - Preferred industry: ${field(event.data.preferredIndustry)}
         `
 
         const prompt = PERSONALIZED_WELCOME_EMAIL_PROMPT.replace('{{userProfile}}', userProfile)
@@ -55,154 +58,63 @@ export const sendSignUpEmail = inngest.createFunction(
     }
 )
 
-// Rename to Weekly
+// Every Monday 9:00 IST: one email per subscribed user, summarising the news for their own
+// watchlist (general market news when the watchlist is empty). Each user is its own step, so one
+// failed send is retried on its own and never blocks or repeats the others.
 export const sendWeeklyNewsSummary = inngest.createFunction(
-    { id: 'weekly-news-summary', triggers: [{ event: 'app/send.weekly.news' }, { cron: '0 9 * * 1' }] }, // Every Monday at 9AM
+    { id: 'weekly-news-summary', triggers: [{ event: 'app/send.weekly.news' }, { cron: 'TZ=Asia/Kolkata 0 9 * * 1' }] },
     async ({ step }) => {
-        // Step 1: Fetch General Market News
-        const articles = await step.run('fetch-general-news', async () => {
-            const { getNews } = await import("@/lib/actions/finnhub.actions");
-            const news = await getNews();
-            // Ideally getNews would accept range, but getting latest 10 is good for summary
-            return (news || []).slice(0, 10);
-        });
+        const users = await step.run('get-subscribers', () => getAllUsersForNewsEmail());
+        if (users.length === 0) return { message: 'No subscribed users.' };
 
-        if (!articles || articles.length === 0) {
-            return { message: 'No news available to summarize.' };
+        const date = getFormattedTodayDate();
+        let sent = 0;
+
+        for (const user of users) {
+            const result = await step.run(`digest-${user.id}`, async () => {
+                const symbols = await getWatchlistSymbolsByEmail(user.email);
+                const articles = await getNews(symbols);
+                if (!articles || articles.length === 0) return 'no-news';
+
+                const prompt = NEWS_SUMMARY_EMAIL_PROMPT
+                    .replace('{{newsData}}', JSON.stringify(articles, null, 2))
+                    .replace(/daily/g, 'weekly')
+                    .replace(/Daily/g, 'Weekly');
+
+                let newsContent: string;
+                try {
+                    newsContent = await callAIProviderWithFallback(prompt);
+                } catch (error) {
+                    console.error(`⚠️ AI summary failed for ${user.email}, sending headlines instead`, error);
+                    newsContent = headlinesHtml(articles);
+                }
+
+                const { status } = await sendNewsSummaryEmail({
+                    email: user.email,
+                    date,
+                    newsContent,
+                    unsubscribeUrl: digestUnsubscribeUrl(user.id),
+                });
+                return status;
+            });
+            if (result === 'sent') sent++;
         }
 
-        // Doing AI step outside 'run' to use Inngest AI wrapper features properly
-        const prompt = NEWS_SUMMARY_EMAIL_PROMPT.replace('{{newsData}}', JSON.stringify(articles, null, 2))
-            .replace('daily', 'weekly')
-            .replace('Daily', 'Weekly');
-
-
-        const summaryText = await step.run('generate-news-summary', async () => {
-            try {
-                return await callAIProviderWithFallback(prompt);
-            } catch (error) {
-                console.error("⚠️ All AI providers failed for news summary", error);
-                return 'Market is moving. Log in to see more.';
-            }
-        });
-
-        // Step 3: Send Broadcast via Kit
-        await step.run('send-kit-broadcast', async () => {
-            const { kit } = await import("@/lib/kit");
-            const { getFormattedTodayDate } = await import("@/lib/utils");
-
-            // Fetch subscribers for verification log
-            try {
-                const subData = await kit.listSubscribers();
-                const subscriberList = subData.subscribers || [];
-                const confirmedCount = subscriberList.filter((s: any) => s.state === 'active').length;
-
-                console.log(`📋 Target Audience: Found ${subData.total_subscribers} total subscribers in Kit.`);
-                console.log(`✅ Confirmed (Active) Subscribers receiving email: ${confirmedCount}`);
-
-                // Log names/emails for the user to see in Inngest dashboard
-                if (subscriberList.length > 0) {
-                    console.log('--- Recipient List ---');
-                    subscriberList.forEach((s: any) => {
-                        console.log(`${s.email_address} (${s.first_name || 'No Name'}) - Status: ${s.state}`);
-                    });
-                    console.log('----------------------');
-                }
-            } catch (e) {
-                console.warn("Could not list subscribers for logging:", e);
-            }
-
-            const date = getFormattedTodayDate();
-            const subject = `📈 Weekly Market Summary - ${date}`;
-
-            // --- HTML EMAIL TEMPLATE ---
-            // Using inline styles for compatibility. Accent Color: Teal (#20c997)
-
-            const content = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${subject}</title>
-            </head>
-            <body style="margin: 0; padding: 0; background-color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                
-                <!-- Main Container -->
-                <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #000000; padding: 20px;">
-                    <tr>
-                        <td align="center">
-                            
-                            <!-- Content Wrapper with Teal Border -->
-                            <div style="max-width: 600px; width: 100%; border: 2px dashed #20c997; border-radius: 4px; padding: 2px;"> 
-                                <div style="background-color: #000000; padding: 30px 20px;">
-                                    
-                                    <!-- Header / Logo -->
-                                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 30px;">
-                                        <tr>
-                                            <td style="border-bottom: 1px dashed #333; padding-bottom: 20px;">
-                                                 <h2 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; display: flex; align-items: center;">
-                                                    <span style="color: #20c997; margin-right: 10px;">📊</span> StockLens
-                                                 </h2>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- Date & Title -->
-                                    <div style="margin-bottom: 30px;">
-                                        <h1 style="margin: 0 0 10px 0; font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.2;">Weekly Market News</h1>
-                                        <p style="margin: 0; color: #888888; font-size: 16px;">${date}</p>
-                                    </div>
-
-                                    <!-- AI Summary Content -->
-                                    <div style="text-align: left;">
-                                        ${summaryText
-                    .replace(/<h3/g, '<h3 style="color: #ffffff; margin-top: 30px; margin-bottom: 15px; font-size: 20px;"')
-                    .replace(/<div class="dark-info-box"/g, '<div style="background-color: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 25px;"')
-                    .replace(/<h4/g, '<h4 style="color: #ffffff; margin-top: 0; margin-bottom: 15px; font-size: 18px; line-height: 1.4;"')
-                    .replace(/<ul/g, '<ul style="padding-left: 0; list-style-type: none; margin: 0 0 15px 0;"')
-                    .replace(/<li/g, '<li style="margin-bottom: 12px; color: #cccccc; font-size: 16px; line-height: 1.6; display: flex;"')
-                    .replace(/class="dark-text-secondary"/g, '')
-                    .replace(/•/g, '<span style="color: #20c997; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>') // Teal bullets
-                    .replace(/<strong style="color: #FDD458;">/g, '<strong style="color: #20c997;">') // Teal strong text
-                    .replace(/<a /g, '<a style="color: #20c997; text-decoration: none; font-weight: 600;" ') // Teal links
-                }
-                                    </div>
-
-                                    <!-- Footer -->
-                                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 40px; border-top: 1px dashed #333; padding-top: 20px;">
-                                        <tr>
-                                            <td align="center" style="color: #666666; font-size: 14px; line-height: 1.5;">
-                                                <p style="margin: 0 0 10px 0;">You're receiving this email because you signed up for StockLens.</p>
-                                                <p style="margin: 0;">
-                                                    <a href="{{ unsubscribe_url }}" style="color: #20c997; text-decoration: underline;">Unsubscribe</a>
-                                                    <span style="margin: 0 10px;">•</span>
-                                                    <a href="${SITE_URL}/" style="color: #20c997; text-decoration: underline;">Visit StockLens</a>
-                                                </p>
-                                                <p style="margin: 20px 0 0 0; font-size: 12px;">© ${new Date().getFullYear()} NextG Infosoft · Built on <a href="https://github.com/Open-Dev-Society/OpenStock" style="color: #CCDADC !important; text-decoration: underline;">OpenStock</a> by Open Dev Society</p>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                </div>
-                            </div>
-
-                        </td>
-                    </tr>
-                </table>
-            </body>
-            </html>
-            `;
-
-            console.log(`📢 Sending Weekly News Broadcast to all subscribers`);
-            const broadcastResult = await kit.sendBroadcast(subject, content);
-            console.log("👉 Kit API Response:", JSON.stringify(broadcastResult, null, 2));
-            return { success: true, kitResponse: broadcastResult };
-        })
-
-        return { success: true, message: 'Weekly news broadcast sent' }
+        return { success: true, sent, subscribers: users.length };
     }
 )
+
+// Plain list of headlines, used when no AI provider is available
+function headlinesHtml(articles: MarketNewsArticle[]) {
+    const items = articles.map((a) =>
+        `<li style="margin: 0 0 14px 0; font-size: 16px; line-height: 1.5; color: #CCDADC;">` +
+        `<a href="${/^https?:\/\//i.test(a.url) ? escapeHtml(a.url) : '#'}" style="color: #FDD458; text-decoration: none; font-weight: 600;">${escapeHtml(a.headline)}</a>` +
+        (a.source ? ` <span style="color: #6b7280; font-size: 13px;">· ${escapeHtml(a.source)}</span>` : '') +
+        `</li>`
+    ).join('');
+    return `<h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #f8f9fa;">This week's headlines</h3>` +
+        `<ul style="margin: 0 0 30px 0; padding-left: 20px;">${items}</ul>`;
+}
 
 export const checkStockAlerts = inngest.createFunction(
     { id: 'check-stock-alerts', concurrency: 1, triggers: [{ cron: '*/5 * * * *' }] }, // Every 5 minutes; one run at a time so an alert is never emailed twice

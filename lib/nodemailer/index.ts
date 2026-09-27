@@ -77,7 +77,7 @@ export const sendWelcomeEmail = async ({ email, name, intro }: WelcomeEmailData)
 }
 
 export const sendNewsSummaryEmail = async (
-    { email, date, newsContent }: { email: string; date: string; newsContent: string }
+    { email, date, newsContent, unsubscribeUrl }: { email: string; date: string; newsContent: string; unsubscribeUrl: string }
 ) => {
     try {
         if (!transporter) {
@@ -86,15 +86,19 @@ export const sendNewsSummaryEmail = async (
         }
 
         const htmlTemplate = NEWS_SUMMARY_EMAIL_TEMPLATE
-            .replace('{{date}}', date)
-            .replace('{{newsContent}}', newsContent);
+            .replace('{{date}}', () => escapeHtml(date))
+            .replace('{{newsContent}}', () => newsContent)
+            .replace('{{unsubscribeUrl}}', () => escapeHtml(unsubscribeUrl));
 
         const mailOptions = {
             from: `"StockLens" <${process.env.NODEMAILER_EMAIL}>`,
             to: email,
-            subject: `📈 Market News Summary Today - ${date}`,
-            text: `Today's market news summary from StockLens`,
+            subject: `📈 Your weekly StockLens digest - ${date}`,
+            text: `Your weekly market digest from StockLens. Unsubscribe: ${unsubscribeUrl}`,
             html: htmlTemplate,
+            // Gmail and Yahoo show a one-click Unsubscribe button for recurring mail with these headers
+            list: { unsubscribe: { url: unsubscribeUrl, comment: 'Unsubscribe from the weekly digest' } },
+            headers: { 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
         };
 
         const info = await transporter.sendMail(mailOptions);

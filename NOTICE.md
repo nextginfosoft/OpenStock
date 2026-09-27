@@ -46,5 +46,10 @@ Based on OpenStock at upstream commit `87df76a`.
 - Background jobs: only the welcome email is registered with Inngest; the weekly digest runs only
   when Kit is configured, and the unfinished inactive-user job is disabled.
 - Dependencies updated to clear all npm audit findings.
+- Weekly digest rebuilt: one AI-summarised email per user for their own watchlist, sent via
+  Gmail (Kit removed), Mondays 09:00 IST, with signed one-click unsubscribe links.
+- Welcome email now queued for every new account (email or Google/GitHub sign-in).
+- Share preview image, Cloudflare Web Analytics (replacing Vercel Analytics), and public
+  favicon/share-image routes.
 
 The Terms of Service page (`app/(marketing)/terms`) and `LICENSE` are unchanged.

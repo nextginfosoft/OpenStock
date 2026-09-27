@@ -10,8 +10,9 @@ export const getAllUsersForNewsEmail = async () => {
         const db = mongoose.connection.db;
         if(!db) throw new Error('Mongoose connection not connected');
 
+        // weeklyDigest is only ever set to false (by the unsubscribe link); a missing field means subscribed
         const users = await db.collection('user').find(
-            { email: { $exists: true, $ne: null }},
+            { email: { $exists: true, $ne: null }, weeklyDigest: { $ne: false } },
             { projection: { _id: 1, id: 1, email: 1, name: 1, country:1 }}
         ).toArray();
 
