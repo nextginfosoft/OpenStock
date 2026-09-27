@@ -36,7 +36,9 @@ async function sendTemplate(to: string, name: string, components: TemplateCompon
         headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
             messaging_product: 'whatsapp',
-            to,
+            // The "+" matters: without it Meta prepends the business number's country code (91),
+            // turning 919876543210 into +91 919876543210 and silently not delivering
+            to: `+${to}`,
             type: 'template',
             template: { name, language: { code: TEMPLATE_LANGUAGE }, components },
         }),
